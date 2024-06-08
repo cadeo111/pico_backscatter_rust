@@ -9,6 +9,9 @@ jobs:
   building:
     name: Building
     continue-on-error: ${{ matrix.experimental || false }}
+    defaults:
+      run:
+        working-directory: ./pico_qpsk
     strategy:
       matrix:
         # All generated code should be running on stable now
@@ -30,13 +33,15 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           target: thumbv6m-none-eabi
-      - run: cd pico_qpsk
       - run: cargo install flip-link
       - run: cargo build --all
       - run: cargo build --all --release
   linting:
     name: Linting
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./pico_qpsk
     steps:
       - uses: actions/checkout@v3
         with:
@@ -45,11 +50,13 @@ jobs:
         with:
           components: clippy
           target: thumbv6m-none-eabi
-      - run: cd pico_qpsk
       - run: cargo clippy --all-features -- --deny=warnings
   formatting:
     name: Formatting
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./pico_qpsk
     steps:
       - uses: actions/checkout@v3
         with:
@@ -58,5 +65,4 @@ jobs:
         with:
           components: rustfmt
           target: thumbv6m-none-eabi
-      - run: cd pico_qpsk
       - run: cargo fmt -- --check
