@@ -1,47 +1,47 @@
-//! Blinks the LED on a Pico board
-//!
-//! This will blink an LED attached to GP25, which is the pin the Pico uses for the on-board LED.
 #![no_std]
 #![no_main]
 
 use bsp::entry;
-use bsp::hal::{
-    clocks::Clock,
-    pac,
-    sio::Sio,
-    watchdog::Watchdog,
-};
+use bsp::hal::{clocks::Clock, pac, sio::Sio, watchdog::Watchdog};
+use bsp::hal::clocks::ClocksManager;
+use bsp::hal::fugit::RateExtU32;
+use bsp::hal::pio::{Buffers, PIOExt, ShiftDirection};
+use bsp::Pins;
 use cortex_m::delay::Delay;
 use defmt::*;
+#[allow(unused_imports)]
 use defmt_rtt as _;
 use embedded_hal::digital::OutputPin;
+use heapless::Vec;
+#[allow(unused_imports)]
 use panic_probe as _;
-
-// Provide an alias for our BSP so we can switch targets quickly.
-// Uncomment the BSP you included in Cargo.toml, the rest of the code does not need to change.
 use rp_pico as bsp;
-use rp_pico::hal::clocks::ClocksManager;
-use rp_pico::hal::fugit::RateExtU32;
-use rp_pico::hal::pio::{Buffers, PIOExt, ShiftDirection};
-use rp_pico::Pins;
+use rp_pico::hal::gpio::{Function, FunctionPio0, Pin, PinId, PullNone, PullType, ValidFunction};
+use rp_pico::hal::gpio::bank0::Gpio3;
+use rp_pico::hal::pio::{SM0, Tx};
+use rp_pico::pac::RESETS;
 
 use crate::data_array::RAW_PIO_PACKET;
+use crate::pio_bytecode_gen::{convert, repeat4};
+
+// this allows panic handling
 
 mod data_array;
 
-// use sparkfun_pro_micro_rp2040 as bsp;
+mod packet_generation;
+mod pio_bytecode_gen;
 
 // from NCC
 /// Reset the DMA Peripheral.
 
-fn setup_clocks(pac_watchdog: pac::WATCHDOG,
-                pac_pll_sys_device: pac::PLL_SYS,
-                pac_clocks_block: pac::CLOCKS,
-                pac_xosc_dev: pac::XOSC,
-                pac_pll_usb: pac::PLL_USB,
-                pac_resets: &mut pac::RESETS,
-) -> ClocksManager
-{
+fn setup_clocks(
+    pac_watchdog: pac::WATCHDOG,
+    pac_pll_sys_device: pac::PLL_SYS,
+    pac_clocks_block: pac::CLOCKS,
+    pac_xosc_dev: pac::XOSC,
+    pac_pll_usb: pac::PLL_USB,
+    pac_resets: &mut pac::RESETS,
+) -> ClocksManager {
     info!("Setting up clocks...");
 
     // set up custom clock frequency of 128MHz
@@ -59,21 +59,19 @@ fn setup_clocks(pac_watchdog: pac::WATCHDOG,
         while pac_resets.reset_done().read().dma().bit_is_clear() {}
     }
 
-
     // Needed by the clock setup
     let mut watchdog = Watchdog::new(pac_watchdog);
 
-
     // Step 1. Turn on the crystal.
-    let xosc = rp_pico::hal::xosc::setup_xosc_blocking(pac_xosc_dev, rp_pico::XOSC_CRYSTAL_FREQ.Hz())
+    let xosc = bsp::hal::xosc::setup_xosc_blocking(pac_xosc_dev, bsp::XOSC_CRYSTAL_FREQ.Hz())
         .map_err(|_x| false)
         .unwrap();
 
     // Step 2. Configure watchdog tick generation to tick over every microsecond.
-    watchdog.enable_tick_generation((rp_pico::XOSC_CRYSTAL_FREQ / 1_000_000) as u8);
+    watchdog.enable_tick_generation((bsp::XOSC_CRYSTAL_FREQ / 1_000_000) as u8);
 
     // Step 3. Create a clocks manager.
-    let mut clocks = rp_pico::hal::clocks::ClocksManager::new(pac_clocks_block);
+    let mut clocks = bsp::hal::clocks::ClocksManager::new(pac_clocks_block);
 
     // Step 4. Set up the system PLL.
     //
@@ -92,11 +90,10 @@ fn setup_clocks(pac_watchdog: pac::WATCHDOG,
     // > Jitter is minimised by running the VCO at the highest possible
     // > frequency, so that higher post-divide values can be used.
 
-
-    let pll_sys = rp_pico::hal::pll::setup_pll_blocking(
+    let pll_sys = bsp::hal::pll::setup_pll_blocking(
         pac_pll_sys_device,
         xosc.operating_frequency(),
-        rp_pico::hal::pll::PLLConfig {
+        bsp::hal::pll::PLLConfig {
             vco_freq: 1536.MHz(),
             refdiv: 1,
             post_div1: 6,
@@ -105,19 +102,19 @@ fn setup_clocks(pac_watchdog: pac::WATCHDOG,
         &mut clocks,
         pac_resets,
     )
-        .map_err(|_x| false)
-        .unwrap();
+    .map_err(|_x| false)
+    .unwrap();
 
     // Step 5. Set up a 48 MHz PLL for the USB system.
-    let pll_usb = rp_pico::hal::pll::setup_pll_blocking(
+    let pll_usb = bsp::hal::pll::setup_pll_blocking(
         pac_pll_usb,
         xosc.operating_frequency(),
-        rp_pico::hal::pll::common_configs::PLL_USB_48MHZ,
+        bsp::hal::pll::common_configs::PLL_USB_48MHZ,
         &mut clocks,
         pac_resets,
     )
-        .map_err(|_x| false)
-        .unwrap();
+    .map_err(|_x| false)
+    .unwrap();
     // Step 6. Set the system to run from the PLLs we just configured.
     clocks
         .init_default(&xosc, &pll_sys, &pll_usb)
@@ -125,7 +122,6 @@ fn setup_clocks(pac_watchdog: pac::WATCHDOG,
         .unwrap();
 
     info!("Clocks OK");
-
 
     // ^^^ from NCC ^^^
     return clocks;
@@ -136,33 +132,95 @@ fn setup_pins_delay(
     io_bank0: pac::IO_BANK0,
     pads_bank0: pac::PADS_BANK0,
     system_clock_freq_hz: u32,
-    pac_sio: pac::SIO, ) -> (Pins, Delay)
-{
+    pac_sio: pac::SIO,
+) -> (Pins, Delay) {
     info!("setting up pins and delay...");
     // let mut pp = pac::Peripherals::take().unwrap();
     let pc = pac::CorePeripherals::take().unwrap();
 
-
     let sio = Sio::new(pac_sio);
 
-    let mut delay = Delay::new(pc.SYST, system_clock_freq_hz);
+    let delay = Delay::new(pc.SYST, system_clock_freq_hz);
 
-    let pins = Pins::new(
-        io_bank0,
-        pads_bank0,
-        sio.gpio_bank0,
-        pac_resets,
-    );
+    let pins = Pins::new(io_bank0, pads_bank0, sio.gpio_bank0, pac_resets);
     info!("pins and delay OK");
     return (pins, delay);
 }
 
+fn initialize_pio<F: Function, PD: PullType, P: PinId, F2: Function, PD2: PullType, PIOS: PIOExt>(
+    gpio3: Pin<Gpio3, F, PD>,
+    antenna_pin: Pin<P, F2, PD2>,
+    pio: PIOS,
+    resets: &mut RESETS,
+) -> (Tx<(PIOS, SM0)>, impl FnOnce() -> ())
+where
+    P: ValidFunction<FunctionPio0>,
+{
+    info!("Setting up PIO...");
+
+    // this must start high as the pio starts when it goes low should you want to push some data before starting
+    let mut start_pin = gpio3.into_push_pull_output();
+    start_pin.set_high().unwrap();
+
+    let (mut pio, sm0, _, _, _) = pio.split(resets);
+
+    // Create a pio program
+    let program = pio_proc::pio_asm!(
+        "wait 0 pin 3",
+        ".wrap_target",
+        "set pins 0 [1]",
+        "loop1:",
+        "out x 1",
+        "jmp x-- loop1",
+        "set pins, 1 [1]",
+        "loop2:",
+        "out y 1",
+        "jmp y-- loop2",
+        ".wrap",
+        options(max_program_size = 32) // Optional, defaults to 32
+    );
+
+    let installed = pio.install(&program.program).unwrap();
+    info!("PIO program install ok");
+    // Set gpio25 to pio
+
+    let antenna_pin: Pin<_, FunctionPio0, PullNone> = antenna_pin.reconfigure::<FunctionPio0, PullNone>();
+
+    let antenna_pin_id = antenna_pin.id().num;
+
+    // Build the pio program and set pin both for set and side set!
+    // We are running with the default divider which is 1 (max speed)
+    let (mut sm, _, mut tx) = bsp::hal::pio::PIOBuilder::from_installed_program(installed)
+        .set_pins(antenna_pin_id, 1)
+        .buffers(Buffers::OnlyTx)
+        .autopull(true)
+        .pull_threshold(32)
+        .out_shift_direction(ShiftDirection::Left)
+        .build(sm0);
+
+    sm.set_pindirs([(antenna_pin_id, bsp::hal::pio::PinDir::Output)]);
+    info!("PIO setup ok");
+
+    let sm = sm.start();
+
+    info!("PIO start ok");
+
+    (tx, move || {
+        start_pin.set_low().unwrap();
+    })
+}
 
 #[entry]
 fn main() -> ! {
     let mut pp = pac::Peripherals::take().unwrap();
-    let clocks = setup_clocks(pp.WATCHDOG, pp.PLL_SYS, pp.CLOCKS, pp.XOSC, pp.PLL_USB,
-                              &mut pp.RESETS,
+
+    let clocks = setup_clocks(
+        pp.WATCHDOG,
+        pp.PLL_SYS,
+        pp.CLOCKS,
+        pp.XOSC,
+        pp.PLL_USB,
+        &mut pp.RESETS,
     );
 
     let (pins, mut delay) = setup_pins_delay(
@@ -170,77 +228,45 @@ fn main() -> ! {
         pp.IO_BANK0,
         pp.PADS_BANK0,
         clocks.system_clock.freq().to_Hz(),
-        pp.SIO);
-
-    let mut start_pin = pins.gpio3.into_push_pull_output();
-    let mut trigger_pin = pins.gpio2.into_push_pull_output();
-    trigger_pin.set_low().unwrap();
-    start_pin.set_high().unwrap();
-    info!("PIN 3 is high PIN 2 is low");
-
-
-    info!("Setting up PIO...");
-    let (mut pio0, sm0, _, _, _) = pp.PIO0.split(&mut pp.RESETS);
-
-    // Create a pio program
-    let program = pio_proc::pio_asm!(
-    "wait 0 pin 3",
-    ".wrap_target",
-        "set pins 0 [1]",
-        "loop1:",
-            "out x 1",
-            "jmp x-- loop1",
-        "set pins, 1 [1]",
-        "loop2:",
-            "out y 1",
-            "jmp y-- loop2",
-    ".wrap",
-    options(max_program_size = 32) // Optional, defaults to 32
+        pp.SIO,
     );
 
-    let installed = pio0.install(&program.program).unwrap();
-    info!("PIO program install ok");
-    // Set gpio25 to pio
-    let _led: rp_pico::hal::gpio::Pin<_, rp_pico::hal::gpio::FunctionPio0, rp_pico::hal::gpio::PullNone> =
-        pins.gpio6.reconfigure();
-    let led_pin_id = 6;
+    let (mut tx, start_pio_execution) = initialize_pio(pins.gpio3, pins.gpio6, pp.PIO0, &mut pp.RESETS);
 
-    // Build the pio program and set pin both for set and side set!
-    // We are running with the default divider which is 1 (max speed)
-    let (mut sm, _, mut tx) = rp_pico::hal::pio::PIOBuilder::from_installed_program(installed)
-        .set_pins(led_pin_id, 1)
-        .buffers(Buffers::OnlyTx)
-        .autopull(true)
-        .pull_threshold(32)
-        .out_shift_direction(ShiftDirection::Left)
-        .build(sm0);
+    info!("generating packet iterator");
+    let iter = convert(
+        "00000000A71741880B222234124444CDAB0102030405020202090A4B49",
+        repeat4,
+    );
 
-    // Set pio pindir for gpio25
-    sm.set_pindirs([(led_pin_id, rp_pico::hal::pio::PinDir::Output)]);
-    info!("PIO setup ok");
-
-
-    // Start state machine
-    let sm = sm.start();
-
-    info!("PIO start ok");
-    info!("loading FIFO");
-    let mut started = false;
     info!("delay 5 sec");
     delay.delay_ms(5000);
     info!("start");
-    trigger_pin.set_high().unwrap();
     delay.delay_ms(1);
-    start_pin.set_low().unwrap();
+
+    start_pio_execution();
+
+    let buffer: Vec<u32, 2000> = Vec::from_iter(iter);
+
     info!("PIN 3 is low Pin 2 is High");
+    let mut idx = 0;
     loop {
-        info!("sending packet...");
-        for i in RAW_PIO_PACKET {
-            while (tx.is_full()) {}
-            tx.write(*i);
+        if idx % 20 < 10 {
+            info!("sending gen packet...");
+            for i in &buffer {
+                while tx.is_full() {}
+                tx.write(*i);
+            }
+        } else {
+            info!("sending static packet...");
+            for i in RAW_PIO_PACKET {
+                while tx.is_full() {}
+                tx.write(*i);
+            }
         }
-        info!("delay 5 seconds");
+        info!("delay 1 seconds");
         delay.delay_ms(1000);
+        idx += 1;
     }
 }
 

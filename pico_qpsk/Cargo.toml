@@ -19,6 +19,8 @@ rp-pico = "0.9"
 # pio packages
 pio-proc = "0.2"
 pio = "0.2"
+heapless = "0.8.0"
+itertools = { version = "0.13.0", features = [],default-features = false}
 
 
 
