@@ -2,10 +2,10 @@
 #![no_main]
 
 use bsp::entry;
-use bsp::hal::{clocks::Clock, pac, sio::Sio, watchdog::Watchdog};
 use bsp::hal::clocks::ClocksManager;
 use bsp::hal::fugit::RateExtU32;
 use bsp::hal::pio::{Buffers, PIOExt, ShiftDirection};
+use bsp::hal::{clocks::Clock, pac, sio::Sio, watchdog::Watchdog};
 use bsp::Pins;
 use cortex_m::delay::Delay;
 use defmt::*;
@@ -16,9 +16,9 @@ use heapless::Vec;
 #[allow(unused_imports)]
 use panic_probe as _;
 use rp_pico as bsp;
-use rp_pico::hal::gpio::{Function, FunctionPio0, Pin, PinId, PullNone, PullType, ValidFunction};
 use rp_pico::hal::gpio::bank0::Gpio3;
-use rp_pico::hal::pio::{SM0, Tx};
+use rp_pico::hal::gpio::{Function, FunctionPio0, Pin, PinId, PullNone, PullType, ValidFunction};
+use rp_pico::hal::pio::{Tx, SM0};
 use rp_pico::pac::RESETS;
 
 use crate::data_array::RAW_PIO_PACKET;
@@ -31,20 +31,20 @@ mod data_array;
 mod pio_bytecode_gen;
 
 /// Sets the system clock to 128MHz
-/// 
-/// # Arguments 
-/// 
+///
+/// # Arguments
+///
 /// * `pac_watchdog`: pac::Peripherals arg for init
 /// * `pac_pll_sys_device`:  pac::Peripherals arg for init
 /// * `pac_clocks_block`: pac::Peripherals arg for init
 /// * `pac_xosc_dev`: pac::Peripherals arg for init
 /// * `pac_pll_usb`: pac::Peripherals arg for init
 /// * `pac_resets`: pac::Peripherals arg for init
-/// 
-/// returns: ClocksManager 
-/// 
-/// # Examples 
-/// 
+///
+/// returns: ClocksManager
+///
+/// # Examples
+///
 /// ```
 ///     let clocks = setup_clocks(
 ///         pp.WATCHDOG,
@@ -148,20 +148,20 @@ fn setup_clocks(
     return clocks;
 }
 
-/// 
-/// 
-/// # Arguments 
-/// 
+///
+///
+/// # Arguments
+///
 /// * `pac_resets`: pac::Peripherals arg for init
 /// * `io_bank0`: pac::Peripherals arg for init
 /// * `pads_bank0`: pac::Peripherals arg for init
 /// * `system_clock_freq_hz`: the clock frequency you set up
-/// * `pac_sio`: 
-/// 
-/// returns: (Pins, Delay) 
-/// 
-/// # Examples 
-/// 
+/// * `pac_sio`:
+///
+/// returns: (Pins, Delay)
+///
+/// # Examples
+///
 /// ```
 ///  let (pins, mut delay) = setup_pins_delay(
 ///         &mut pp.RESETS,
@@ -170,8 +170,8 @@ fn setup_clocks(
 ///         clocks.system_clock.freq().to_Hz(),
 ///         pp.SIO,
 ///     );
-/// 
-/// 
+///
+///
 /// ```
 fn setup_pins_delay(
     pac_resets: &mut pac::RESETS,

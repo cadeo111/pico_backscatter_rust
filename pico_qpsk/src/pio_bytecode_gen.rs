@@ -1,6 +1,6 @@
 use core::fmt::Display;
 use core::iter;
-use core::iter::{Chain, FilterMap, FlatMap, Flatten, once, Once, Repeat, Scan, Skip, Take};
+use core::iter::{once, Chain, FilterMap, FlatMap, Flatten, Once, Repeat, Scan, Skip, Take};
 use core::str::Chars;
 
 use itertools::{Batching, Itertools, Tuples};
@@ -294,7 +294,6 @@ fn repeater(repeats: u8, n: u8) -> Take<Repeat<u8>> {
     return iter::repeat(n).take(repeats as usize);
 }
 
-
 /// repeat 4 times,
 ///
 /// necessary for typing reasons, can't return a closure type via a iterator
@@ -352,13 +351,12 @@ fn pack_bits_into_u32(it: &mut IntsListType) -> Option<u32> {
         }
     }
     // if there isn't a number of bits divisible by 32, make sure that last bit gets saved
-    if(bit_idx == 0) {
+    if (bit_idx == 0) {
         return None;
-    }else{
+    } else {
         return Some(value);
     }
 }
-
 
 /// swap every 2 characters in a string
 ///
@@ -382,7 +380,6 @@ fn swap(s: &str) -> SwapType {
         .flat_map(swap_fn)
 }
 
-`
 fn get_chip_sequences(s: SwapType) -> ChipSequenceType {
     s.flat_map(hex_to_chips)
 }
