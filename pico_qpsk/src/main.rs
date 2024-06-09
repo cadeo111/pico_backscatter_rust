@@ -5,6 +5,13 @@
 #![no_main]
 
 use bsp::entry;
+use bsp::hal::{
+    clocks::Clock,
+    pac,
+    sio::Sio,
+    watchdog::Watchdog,
+};
+use cortex_m::delay::Delay;
 use defmt::*;
 use defmt_rtt as _;
 use embedded_hal::digital::OutputPin;
@@ -13,24 +20,16 @@ use panic_probe as _;
 // Provide an alias for our BSP so we can switch targets quickly.
 // Uncomment the BSP you included in Cargo.toml, the rest of the code does not need to change.
 use rp_pico as bsp;
-// use sparkfun_pro_micro_rp2040 as bsp;
-
-use bsp::hal::{
-    clocks::{init_clocks_and_plls, Clock},
-    pac,
-    sio::Sio,
-    watchdog::Watchdog,
-};
-use cortex_m::asm::delay;
-use cortex_m::delay::Delay;
-use pio_proc::pio_file;
 use rp_pico::hal::clocks::ClocksManager;
 use rp_pico::hal::fugit::RateExtU32;
-use rp_pico::hal::gpio::bank0::Gpio6;
 use rp_pico::hal::pio::{Buffers, PIOExt, ShiftDirection};
-
-
 use rp_pico::Pins;
+
+use crate::data_array::RAW_PIO_PACKET;
+
+mod data_array;
+
+// use sparkfun_pro_micro_rp2040 as bsp;
 
 // from NCC
 /// Reset the DMA Peripheral.
@@ -178,8 +177,8 @@ fn main() -> ! {
     trigger_pin.set_low().unwrap();
     start_pin.set_high().unwrap();
     info!("PIN 3 is high PIN 2 is low");
-    
-    
+
+
     info!("Setting up PIO...");
     let (mut pio0, sm0, _, _, _) = pp.PIO0.split(&mut pp.RESETS);
 
@@ -220,58 +219,28 @@ fn main() -> ! {
     sm.set_pindirs([(led_pin_id, rp_pico::hal::pio::PinDir::Output)]);
     info!("PIO setup ok");
 
-   
 
     // Start state machine
     let sm = sm.start();
-    
+
     info!("PIO start ok");
     info!("loading FIFO");
     let mut started = false;
-    info!("delay 2 sec");
+    info!("delay 5 sec");
     delay.delay_ms(5000);
     info!("start");
-
-    tx.write(0b11111110111111101111111011111110);
-    while (tx.is_full()) {}
-    tx.write(0b11111110111111101111111011111110);
-    while (tx.is_full()) {}
-    tx.write(0b11111110111111101111111011111110);
-    while (tx.is_full()) {}
-    tx.write(0b11111110111111101111111011111110);
-    if !started {
-        started = true;
-        trigger_pin.set_high().unwrap();
-        delay.delay_ms(1);
-        start_pin.set_low().unwrap();
-        info!("PIN 3 is low Pin 2 is High");
-    }
-    loop{
-        while (tx.is_full()) {}
-        tx.write(0b11111110111111101111111011111110);
-    }
-
-
-    // This is the correct pin on the Raspberry Pico board. On other boards, even if they have an
-    // on-board LED, it might need to be changed.
-    //
-    // Notably, on the Pico W, the LED is not connected to any of the RP2040 GPIOs but to the cyw43 module instead.
-    // One way to do that is by using [embassy](https://github.com/embassy-rs/embassy/blob/main/examples/rp/src/bin/wifi_blinky.rs)
-    //
-    // If you have a Pico W and want to toggle a LED with a simple GPIO output pin, you can connect an external
-    // LED to one of the GPIO pins, and reference that pin here. Don't forget adding an appropriate resistor
-    // in series with the LED.
-
-
-    // let mut led_pin = pins.led.into_push_pull_output();
-
+    trigger_pin.set_high().unwrap();
+    delay.delay_ms(1);
+    start_pin.set_low().unwrap();
+    info!("PIN 3 is low Pin 2 is High");
     loop {
-        // info!("on!");
-        // led_pin.set_high().unwrap();
-        // delay.delay_ms(500);
-        // info!("off!");
-        // led_pin.set_low().unwrap();
-        // delay.delay_ms(500);
+        info!("sending packet...");
+        for i in RAW_PIO_PACKET {
+            while (tx.is_full()) {}
+            tx.write(*i);
+        }
+        info!("delay 5 seconds");
+        delay.delay_ms(1000);
     }
 }
 
