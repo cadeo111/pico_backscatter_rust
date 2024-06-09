@@ -2,10 +2,10 @@
 #![no_main]
 
 use bsp::entry;
+use bsp::hal::{clocks::Clock, pac, sio::Sio, watchdog::Watchdog};
 use bsp::hal::clocks::ClocksManager;
 use bsp::hal::fugit::RateExtU32;
 use bsp::hal::pio::{Buffers, PIOExt, ShiftDirection};
-use bsp::hal::{clocks::Clock, pac, sio::Sio, watchdog::Watchdog};
 use bsp::Pins;
 use cortex_m::delay::Delay;
 use defmt::*;
@@ -16,9 +16,9 @@ use heapless::Vec;
 #[allow(unused_imports)]
 use panic_probe as _;
 use rp_pico as bsp;
-use rp_pico::hal::gpio::bank0::Gpio3;
 use rp_pico::hal::gpio::{Function, FunctionPio0, Pin, PinId, PullNone, PullType, ValidFunction};
-use rp_pico::hal::pio::{Tx, SM0};
+use rp_pico::hal::gpio::bank0::Gpio3;
+use rp_pico::hal::pio::{SM0, Tx};
 use rp_pico::pac::RESETS;
 
 use crate::data_array::RAW_PIO_PACKET;
@@ -61,7 +61,7 @@ fn setup_clocks(
     pac_clocks_block: pac::CLOCKS,
     pac_xosc_dev: pac::XOSC,
     pac_pll_usb: pac::PLL_USB,
-    pac_resets: &mut pac::RESETS,
+    pac_resets: &mut RESETS,
 ) -> ClocksManager {
     info!("Setting up clocks...");
 
@@ -92,7 +92,7 @@ fn setup_clocks(
     watchdog.enable_tick_generation((bsp::XOSC_CRYSTAL_FREQ / 1_000_000) as u8);
 
     // Step 3. Create a clocks manager.
-    let mut clocks = bsp::hal::clocks::ClocksManager::new(pac_clocks_block);
+    let mut clocks = ClocksManager::new(pac_clocks_block);
 
     // Step 4. Set up the system PLL.
     //
@@ -145,7 +145,7 @@ fn setup_clocks(
     info!("Clocks OK");
 
     // ^^^ from NCC ^^^
-    return clocks;
+    clocks
 }
 
 ///
@@ -174,7 +174,7 @@ fn setup_clocks(
 ///
 /// ```
 fn setup_pins_delay(
-    pac_resets: &mut pac::RESETS,
+    pac_resets: &mut RESETS,
     io_bank0: pac::IO_BANK0,
     pads_bank0: pac::PADS_BANK0,
     system_clock_freq_hz: u32,
@@ -190,7 +190,7 @@ fn setup_pins_delay(
 
     let pins = Pins::new(io_bank0, pads_bank0, sio.gpio_bank0, pac_resets);
     info!("pins and delay OK");
-    return (pins, delay);
+    (pins, delay)
 }
 
 /// Initialize the PIO block with the OQPSK state machine
@@ -216,14 +216,20 @@ fn setup_pins_delay(
 ///   tx.write(0b111101100011);
 ///
 /// ```
-fn initialize_pio<F: Function, PD: PullType, P: PinId, F2: Function, PD2: PullType, PIOS: PIOExt>(
+fn initialize_pio<F, PD, P, F2, PD2, PIOS>(
     gpio3: Pin<Gpio3, F, PD>,
     antenna_pin: Pin<P, F2, PD2>,
     pio: PIOS,
     resets: &mut RESETS,
-) -> (Tx<(PIOS, SM0)>, impl FnOnce() -> ())
+) -> (Tx<(PIOS, SM0)>, impl FnOnce())
 where
     P: ValidFunction<FunctionPio0>,
+    F: Function,
+    PD: PullType,
+    P: PinId,
+    F2: Function,
+    PD2: PullType,
+    PIOS: PIOExt,
 {
     info!("Setting up PIO...");
 
@@ -259,7 +265,7 @@ where
 
     // Build the pio program and set pin both for set and side set!
     // We are running with the default divider which is 1 (max speed)
-    let (mut sm, _, mut tx) = bsp::hal::pio::PIOBuilder::from_installed_program(installed)
+    let (mut sm, _, tx) = bsp::hal::pio::PIOBuilder::from_installed_program(installed)
         .set_pins(antenna_pin_id, 1)
         .buffers(Buffers::OnlyTx)
         .autopull(true)
@@ -270,7 +276,7 @@ where
     sm.set_pindirs([(antenna_pin_id, bsp::hal::pio::PinDir::Output)]);
     info!("PIO setup ok");
 
-    let sm = sm.start();
+    sm.start();
 
     info!("PIO start ok");
 
