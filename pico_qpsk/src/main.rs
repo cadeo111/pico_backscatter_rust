@@ -28,12 +28,33 @@ use crate::pio_bytecode_gen::{convert, repeat4};
 
 mod data_array;
 
-mod packet_generation;
 mod pio_bytecode_gen;
 
-// from NCC
-/// Reset the DMA Peripheral.
-
+/// Sets the system clock to 128MHz
+/// 
+/// # Arguments 
+/// 
+/// * `pac_watchdog`: pac::Peripherals arg for init
+/// * `pac_pll_sys_device`:  pac::Peripherals arg for init
+/// * `pac_clocks_block`: pac::Peripherals arg for init
+/// * `pac_xosc_dev`: pac::Peripherals arg for init
+/// * `pac_pll_usb`: pac::Peripherals arg for init
+/// * `pac_resets`: pac::Peripherals arg for init
+/// 
+/// returns: ClocksManager 
+/// 
+/// # Examples 
+/// 
+/// ```
+///     let clocks = setup_clocks(
+///         pp.WATCHDOG,
+///         pp.PLL_SYS,
+///         pp.CLOCKS,
+///         pp.XOSC,
+///         pp.PLL_USB,
+///         &mut pp.RESETS,
+///     );
+/// ```
 fn setup_clocks(
     pac_watchdog: pac::WATCHDOG,
     pac_pll_sys_device: pac::PLL_SYS,
@@ -127,6 +148,31 @@ fn setup_clocks(
     return clocks;
 }
 
+/// 
+/// 
+/// # Arguments 
+/// 
+/// * `pac_resets`: pac::Peripherals arg for init
+/// * `io_bank0`: pac::Peripherals arg for init
+/// * `pads_bank0`: pac::Peripherals arg for init
+/// * `system_clock_freq_hz`: the clock frequency you set up
+/// * `pac_sio`: 
+/// 
+/// returns: (Pins, Delay) 
+/// 
+/// # Examples 
+/// 
+/// ```
+///  let (pins, mut delay) = setup_pins_delay(
+///         &mut pp.RESETS,
+///         pp.IO_BANK0,
+///         pp.PADS_BANK0,
+///         clocks.system_clock.freq().to_Hz(),
+///         pp.SIO,
+///     );
+/// 
+/// 
+/// ```
 fn setup_pins_delay(
     pac_resets: &mut pac::RESETS,
     io_bank0: pac::IO_BANK0,
@@ -147,6 +193,29 @@ fn setup_pins_delay(
     return (pins, delay);
 }
 
+/// Initialize the PIO block with the OQPSK state machine
+/// this PIO program can generate any signal that has at least 4 cycle low and high
+/// # Arguments
+///
+/// * `gpio3`: the trigger pin set in the program, the PIO waits for it to go low before starting to read data
+/// * `antenna_pin`: the pin that the PIO should control
+/// * `pio`:  which pio to use PIO0 or PIO1
+/// * `resets`: idk, required to init
+///
+/// returns: (Tx<(PIOS, SM0)>, impl FnOnce()+Sized)
+/// Tx is the writer to the pio buffer, send the data here
+/// the function will start the pio reading data, ie, it pulls pin 3 low
+///
+/// # Examples
+///
+/// ```
+/// let (mut tx, start_pio_execution) = initialize_pio(pins.gpio3, pins.gpio6, pp.PIO0, &mut pp.RESETS);
+/// start_pio_execution();
+///
+///  while tx.is_full() {}
+///   tx.write(0b111101100011);
+///
+/// ```
 fn initialize_pio<F: Function, PD: PullType, P: PinId, F2: Function, PD2: PullType, PIOS: PIOExt>(
     gpio3: Pin<Gpio3, F, PD>,
     antenna_pin: Pin<P, F2, PD2>,
