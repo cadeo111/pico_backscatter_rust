@@ -1,0 +1,45 @@
+;
+; Backscatter PIO
+; Configured for one antenna
+;
+
+.program backscatter_pio_0
+ WAIT 0 pin 3
+.wrap_target
+    SET  pins   0 [1];this may need to be 1, depending on if the pio sets low/high before or after this instruction
+    loop1:
+        OUT     x  1
+        JMP x-- loop1
+    SET  pins   1 [1] ; this may need to be 1, depending on if the pio sets low/high before or after this instruction
+    loop2:
+        OUT     y  1
+        JMP y-- loop2
+.wrap
+
+
+
+
+% c-sdk {
+#include "pico/stdlib.h"
+#include "hardware/clocks.h"
+//#define min(x, y) (((x) < (y)) ? (x) : (y))
+#define PIO_BAUDRATE 100000
+#define PIO_CENTER_OFFSET 4836310
+#define PIO_DEVIATION 372024
+#define PIO_MIN_RX_BW 844048
+
+static inline void backscatter_program_init(PIO pio, uint sm, uint offset, uint pin1){
+  // Initialize PIO 1
+  if(sm == 0) {
+     pio_gpio_init(pio, pin1);
+     pio_sm_set_consecutive_pindirs(pio, sm, pin1, 1, true);
+     pio_sm_config c = backscatter_pio_0_program_get_default_config(offset);
+     sm_config_set_set_pins(&c, pin1, 1);
+     sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX); // We only need TX, so get an 8-deep FIFO (join RX and TX FIFO)
+     sm_config_set_out_shift(&c, false, true, 32);  // OUT shifts to left (MSB first), autopull after every 32 bit
+     pio_sm_init(pio, sm, offset, &c);
+     pio_sm_set_enabled(pio, sm, true);
+  }
+}
+
+%}
