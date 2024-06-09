@@ -92,7 +92,7 @@ pub enum Level {
 /// [b, a]
 ///
 fn swap_fn((a, b): (char, char)) -> [char; 2] {
-     [b, a]
+    [b, a]
 }
 
 ///
@@ -150,19 +150,19 @@ fn chips_to_waves(bit_chip2: u8) -> [Level; 3] {
     match bit_chip2 {
         0b00 => {
             //0000111111110000
-             [Level::Low(4), Level::High(8), Level::Low(4)]
+            [Level::Low(4), Level::High(8), Level::Low(4)]
         }
         0b01 => {
             //0000000011111111
-             [Level::Low(8), Level::High(8), Level::Nop]
+            [Level::Low(8), Level::High(8), Level::Nop]
         }
         0b10 => {
             // 1111111100000000
-             [Level::High(8), Level::Low(8), Level::Nop]
+            [Level::High(8), Level::Low(8), Level::Nop]
         }
         0b11 => {
             //1111000000001111
-             [Level::High(4), Level::Low(8), Level::High(4)]
+            [Level::High(4), Level::Low(8), Level::High(4)]
         }
 
         _ => {
@@ -188,7 +188,7 @@ fn chips_to_waves(bit_chip2: u8) -> [Level; 3] {
 /// Nop is used so that there is a return value for every time this is called
 
 fn combine_waves(state: &mut Level, next: Level) -> Option<Level> {
-     match next {
+    match next {
         Level::High(next_len) => {
             match state {
                 Level::High(state_len) => {
@@ -202,7 +202,7 @@ fn combine_waves(state: &mut Level, next: Level) -> Option<Level> {
                     // return the state, and save next as the state
                     let temp = Some(*state);
                     *state = next;
-                     temp
+                    temp
                 }
                 Level::Nop => Some(Level::Nop),
             }
@@ -240,7 +240,7 @@ fn combine_waves(state: &mut Level, next: Level) -> Option<Level> {
 /// Return Some(l) for High/Low
 /// Option is used to filter out Nops
 fn levels_to_ints(l: Level) -> Option<u8> {
-     match l {
+    match l {
         Level::Low(v) | Level::High(v) => {
             // the first value could be zero due to how combine_waves_works
             if v > 4 {
@@ -289,7 +289,7 @@ fn lengths_to_pio_byte_code_ints(len: u8) -> Chain<Take<Repeat<u8>>, Once<u8>> {
 /// repeater(8,2) -> 8,8
 /// ```
 fn repeater(repeats: u8, n: u8) -> Take<Repeat<u8>> {
-     iter::repeat(n).take(repeats as usize)
+    iter::repeat(n).take(repeats as usize)
 }
 
 /// repeat 4 times,
@@ -303,7 +303,7 @@ fn repeater(repeats: u8, n: u8) -> Take<Repeat<u8>> {
 /// #### returns: Take<Repeat<u8>>
 ///
 pub fn repeat4(n: u8) -> Take<Repeat<u8>> {
-     repeater(4, n)
+    repeater(4, n)
 }
 
 /// repeat 1 times,
@@ -317,7 +317,7 @@ pub fn repeat4(n: u8) -> Take<Repeat<u8>> {
 /// #### returns: Take<Repeat<u8>>
 #[allow(dead_code)]
 pub fn repeat1(n: u8) -> Take<Repeat<u8>> {
-     repeater(1, n)
+    repeater(1, n)
 }
 
 pub type ConvertType<'a> = Batching<IntsListType<'a>, fn(&mut IntsListType) -> Option<u32>>;
@@ -432,5 +432,5 @@ pub fn convert(s: &str, repeat_fn: fn(u8) -> Take<Repeat<u8>>) -> ConvertType {
     );
     let c2: ConvertType = c1_1.batching(pack_bits_into_u32 as fn(&mut IntsListType) -> Option<u32>);
 
-     c2
+    c2
 }
