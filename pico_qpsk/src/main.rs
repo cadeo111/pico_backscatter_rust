@@ -14,6 +14,7 @@ use defmt_rtt as _;
 use embedded_hal::digital::OutputPin;
 use heapless::Vec;
 use ieee802154::mac::{PanId, ShortAddress};
+use itertools::Itertools;
 #[allow(unused_imports)]
 use panic_probe as _;
 use rp_pico as bsp;
@@ -334,7 +335,9 @@ fn main() -> ! {
     let str_vec: Vec<u8, 64> = {
         let str_iter = message_str
             .chars()
-            .map(|c| c.to_digit(16).unwrap().try_into().unwrap());
+            .map(|c| c.to_digit(16).unwrap().try_into().unwrap())
+            .tuples()
+            .flat_map(|(a,b):(u8, u8)|[a<<4 | b]);
         Vec::from_iter(str_iter)
     };
     let iter_string = convert(&str_vec, repeat4);
