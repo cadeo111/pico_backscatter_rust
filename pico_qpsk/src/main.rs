@@ -2,10 +2,10 @@
 #![no_main]
 
 use bsp::entry;
-use bsp::hal::{clocks::Clock, pac, sio::Sio, watchdog::Watchdog};
 use bsp::hal::clocks::ClocksManager;
 use bsp::hal::fugit::RateExtU32;
 use bsp::hal::pio::{Buffers, PIOExt, ShiftDirection};
+use bsp::hal::{clocks::Clock, pac, sio::Sio, watchdog::Watchdog};
 use bsp::Pins;
 use cortex_m::delay::Delay;
 use defmt::*;
@@ -18,9 +18,9 @@ use itertools::Itertools;
 #[allow(unused_imports)]
 use panic_probe as _;
 use rp_pico as bsp;
-use rp_pico::hal::gpio::{Function, FunctionPio0, Pin, PinId, PullNone, PullType, ValidFunction};
 use rp_pico::hal::gpio::bank0::Gpio3;
-use rp_pico::hal::pio::{SM0, Tx};
+use rp_pico::hal::gpio::{Function, FunctionPio0, Pin, PinId, PullNone, PullType, ValidFunction};
+use rp_pico::hal::pio::{Tx, SM0};
 use rp_pico::pac::RESETS;
 
 use crate::data_array::RAW_PIO_PACKET;
@@ -337,7 +337,7 @@ fn main() -> ! {
             .chars()
             .map(|c| c.to_digit(16).unwrap().try_into().unwrap())
             .tuples()
-            .flat_map(|(a,b):(u8, u8)|[a<<4 | b]);
+            .flat_map(|(a, b): (u8, u8)| [a << 4 | b]);
         Vec::from_iter(str_iter)
     };
     let iter_string = convert(&str_vec, repeat4);

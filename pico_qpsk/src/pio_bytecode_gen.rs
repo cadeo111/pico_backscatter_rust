@@ -1,5 +1,5 @@
 use core::iter;
-use core::iter::{Chain, FilterMap, FlatMap, Flatten, once, Once, Repeat, Scan, Skip, Take};
+use core::iter::{once, Chain, FilterMap, FlatMap, Flatten, Once, Repeat, Scan, Skip, Take};
 use core::slice::Iter;
 
 use defmt::*;
@@ -372,8 +372,7 @@ fn pack_bits_into_u32(it: &mut IntsListType) -> Option<u32> {
 /// "ABCD" -> "BADC"
 /// ```
 fn swap(s: &[u8]) -> SwapType {
-    s
-        .iter()
+    s.iter()
         // -> swap every other char for endianness
         .flat_map(swap_and_split_fn)
 }
