@@ -307,7 +307,6 @@ fn get_generated_frame_bytes() -> Vec<u8, MAX_FRAME_SIZE> {
     frame_bytes
 }
 
-
 fn get_hex_string_as_bytes<const MAX_VEC_SIZE: usize>(message_str: &str) -> Vec<u8, MAX_VEC_SIZE> {
     let str_iter = message_str
         .chars()
@@ -351,9 +350,9 @@ fn main() -> ! {
 
     // create data from hex string
     let message_str = "00000000A71741880B222234124444CDAB0102030405020202090A4B49";
-    // the vector needs a compile time max capacity, the number of bytes min needed 
+    // the vector needs a compile time max capacity, the number of bytes min needed
     // is the same as the number of characters in the string
-    const MESSAGE_STR_LEN:usize = 58;
+    const MESSAGE_STR_LEN: usize = 58;
     let str_vec = get_hex_string_as_bytes::<MESSAGE_STR_LEN>(message_str);
     let iter_string = convert(&str_vec, repeat4);
 
@@ -364,10 +363,10 @@ fn main() -> ! {
     info!("PIN 3 is low");
     // swap between the three message options every 10 loops
     let mut idx = 0;
-    
+
     // if the current generated content is from a the generated frame or the string
     let mut is_frame = false;
-    
+
     // the buffer to hold the calculated values for the pio,
     // while it is possible to just iterate through a clone of the iterator directly
     // the Pico is not fast enough to do this and keep up the speed required to send the message
@@ -412,7 +411,7 @@ fn main() -> ! {
                 }
             }
         }
-        // need to make sure there is at least min delay need for inter-frame spacing 
+        // need to make sure there is at least min delay need for inter-frame spacing
         info!("delay 1 second");
         delay.delay_ms(1000);
         idx += 1;
