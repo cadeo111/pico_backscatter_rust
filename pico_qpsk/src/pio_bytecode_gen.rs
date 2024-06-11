@@ -2,7 +2,6 @@ use core::iter;
 use core::iter::{once, Chain, FilterMap, FlatMap, Flatten, Once, Repeat, Scan, Skip, Take};
 use core::slice::Iter;
 
-use defmt::*;
 use itertools::{Batching, Itertools};
 
 const CHIP_ARRAY: &[[u8; 16]] = &[
@@ -180,7 +179,7 @@ fn chips_to_waves(bit_chip2: u8) -> [Level; 3] {
 /// * `state`: the current High or Low timing
 /// * `next`: the next one tp process
 ///
-/// #### returns: Option<Level>
+/// #### returns: [Option<Level>]
 ///  only returns Some(Level)
 ///
 ///  Nop when still adding waves
@@ -237,7 +236,7 @@ fn combine_waves(state: &mut Level, next: Level) -> Option<Level> {
 ///
 /// * `l`: the level
 ///
-/// #### returns: Option<u8>
+/// #### returns: [Option<u8>]
 /// returns None for Nop,
 /// Return Some(l) for High/Low
 /// Option is used to filter out Nops
@@ -261,7 +260,7 @@ fn levels_to_ints(l: Level) -> Option<u8> {
 ///
 /// * `len`: the length to translate
 ///
-/// #### returns: Chain<Take<Repeat<u8>>, Once<u8>>
+/// #### returns: [Chain<Take<Repeat<u8>>, Once<u8>>]
 ///
 ///
 /// ### Examples
@@ -275,14 +274,14 @@ fn lengths_to_pio_byte_code_ints(len: u8) -> Chain<Take<Repeat<u8>>, Once<u8>> {
     iter::repeat(1u8).take(repeats).chain(once(0u8))
 }
 
-/// A helper function to repeat a value [n], [repeat] times
+/// A helper function to repeat a value `n`, `repeat` times
 ///
 /// ### Arguments
 ///
 /// * `repeats`: the number of time to repeat n
 /// * `n`: the value to repeat
 ///
-/// #### returns: Take<Repeat<u8>>
+/// #### returns: [Take<Repeat<u8>>]
 ///
 ///
 /// ### Examples
@@ -302,7 +301,7 @@ fn repeater(repeats: u8, n: u8) -> Take<Repeat<u8>> {
 ///
 /// * `n`: the data to repeat
 ///
-/// #### returns: Take<Repeat<u8>>
+/// #### returns: [Take<Repeat<u8>>]
 ///
 pub fn repeat4(n: u8) -> Take<Repeat<u8>> {
     repeater(4, n)
@@ -330,7 +329,7 @@ pub type ConvertType<'a> = Batching<IntsListType<'a>, fn(&mut IntsListType) -> O
 ///
 /// * `it`: the iterator
 ///
-/// #### returns: Option<u32>
+/// #### returns: [Option<u32>]
 ///  Some(u32) while there is data in iter
 ///  None when the iterator is empty
 ///

@@ -6,8 +6,12 @@ use ieee802154::mac::{
     ShortAddress,
 };
 
+/// Macro add padding to go from the size of the payload to the size of the entire Physical packet
+///
+/// Get the max frame size from the maximum packet size in bytes
+///
+/// Needed as [heapless::Vec] requires a constant capacity and so the [PhysicalFrame] also requires the same
 #[macro_export]
-/// get the max frame size from the maximum packet size in bytes
 macro_rules! to_max_frame_size {
     // SEE RHODE & SCHWARTZ APP NOTE in technical documents
 
@@ -21,6 +25,7 @@ macro_rules! to_max_frame_size {
     };
 }
 
+/// A type to hold the possible errors that occur whe a Physical frame is being constructed or converted to bytes
 #[derive(Debug)]
 pub enum FrameConstructionError {
     FrameWrite(byte::Error),
@@ -28,11 +33,15 @@ pub enum FrameConstructionError {
     MacFrameLength,
 }
 
+/// Physical packet preamble
 const PHY_PREAMBLE: [u8; 4] = [0x00, 0x00, 0x00, 0x00];
 
 /// Start of frame delimiter
 const PHY_SFD: u8 = 0xA7;
 
+/// A Physical frame to send over O-QPSK 802.15.4
+///
+/// A group only contains the mac frame, everything else is generated on conversion to bytes.
 #[derive(Debug)]
 pub struct PhysicalFrame<'p, const MAX_FRAME_SIZE: usize> {
     mac_frame: Frame<'p>,
@@ -107,7 +116,7 @@ impl<'p, const MAX_FRAME_SIZE: usize> PhysicalFrame<'p, MAX_FRAME_SIZE> {
             frame
         };
 
-        return Ok(PhysicalFrame { mac_frame: frame });
+        Ok(PhysicalFrame { mac_frame: frame })
     }
 
     /// ```
@@ -132,6 +141,15 @@ impl<'p, const MAX_FRAME_SIZE: usize> PhysicalFrame<'p, MAX_FRAME_SIZE> {
     }
 }
 
+/// Convert mac frame to
+///
+/// ### Arguments
+///
+/// * `frame`: the mac frame to convert to bytes
+/// * `footer_mode`: if a footer should be included (AKA the CRC/FCS)
+///
+/// #### returns: Result<Vec<u8, { MAX_FRAME_SIZE }>, FrameConstructionError>
+///
 pub fn mac_frame_to_vec<const MAX_FRAME_SIZE: usize>(
     frame: Frame,
     footer_mode: FooterMode,
@@ -140,7 +158,7 @@ pub fn mac_frame_to_vec<const MAX_FRAME_SIZE: usize>(
     let mut len = 0usize; // written len
     bytes
         .write_with(&mut len, frame, &mut FrameSerDesContext::no_security(footer_mode))
-        .map_err(|e| FrameConstructionError::FrameWrite(e))?;
+        .map_err(FrameConstructionError::FrameWrite)?;
 
     Vec::<u8, MAX_FRAME_SIZE>::from_slice(&bytes[0..len]).map_err(|_| FrameConstructionError::VecLen)
 }
