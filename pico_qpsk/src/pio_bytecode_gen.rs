@@ -1,8 +1,8 @@
 use core::iter;
 use core::iter::{once, Chain, FilterMap, FlatMap, Flatten, Once, Repeat, Scan, Skip, Take};
-use core::str::Chars;
+use core::slice::Iter;
 
-use itertools::{Batching, Itertools, Tuples};
+use itertools::{Batching, Itertools};
 
 const CHIP_ARRAY: &[[u8; 16]] = &[
     [
@@ -55,8 +55,8 @@ const CHIP_ARRAY: &[[u8; 16]] = &[
     ],
 ];
 
-type SwapType<'a> = FlatMap<Tuples<Chars<'a>, (char, char)>, [char; 2], fn((char, char)) -> [char; 2]>;
-type ChipSequenceType<'a> = FlatMap<SwapType<'a>, [u8; 16], fn(char) -> [u8; 16]>;
+type SwapType<'a> = FlatMap<Iter<'a, u8>, [u8; 2], fn(&u8) -> [u8; 2]>;
+type ChipSequenceType<'a> = FlatMap<SwapType<'a>, [u8; 16], fn(u8) -> [u8; 16]>;
 type MiddleBitsType<'a> = Skip<Flatten<Scan<ChipSequenceType<'a>, u8, fn(&mut u8, u8) -> Option<[u8; 2]>>>>;
 type RepeatType<'a> = FlatMap<MiddleBitsType<'a>, Take<Repeat<u8>>, fn(u8) -> Take<Repeat<u8>>>;
 
@@ -91,8 +91,9 @@ pub enum Level {
 /// #### returns: [char; 2]
 /// [b, a]
 ///
-fn swap_fn((a, b): (char, char)) -> [char; 2] {
-    [b, a]
+fn swap_and_split_fn(byte: &u8) -> [u8; 2] {
+    let ret: [u8; 2] = [byte & 0b00001111u8, byte >> 4];
+    ret
 }
 
 ///
@@ -103,8 +104,8 @@ fn swap_fn((a, b): (char, char)) -> [char; 2] {
 ///
 /// #### returns: [u8; 16]
 /// The corresponding chip sequence for the hex character
-fn hex_to_chips(c: char) -> [u8; 16] {
-    let idx = usize::from(u8::try_from(c.to_digit(16).unwrap()).unwrap());
+fn hex_to_chips(c: u8) -> [u8; 16] {
+    let idx = usize::from(c);
     CHIP_ARRAY[idx]
 }
 
@@ -166,7 +167,7 @@ fn chips_to_waves(bit_chip2: u8) -> [Level; 3] {
         }
 
         _ => {
-            panic!("Illegal bitChip: {bit_chip2}")
+            defmt::panic!("Illegal bitChip: {}", bit_chip2)
         }
     }
 }
@@ -178,7 +179,7 @@ fn chips_to_waves(bit_chip2: u8) -> [Level; 3] {
 /// * `state`: the current High or Low timing
 /// * `next`: the next one tp process
 ///
-/// #### returns: Option<Level>
+/// #### returns: [Option<Level>]
 ///  only returns Some(Level)
 ///
 ///  Nop when still adding waves
@@ -235,7 +236,7 @@ fn combine_waves(state: &mut Level, next: Level) -> Option<Level> {
 ///
 /// * `l`: the level
 ///
-/// #### returns: Option<u8>
+/// #### returns: [Option<u8>]
 /// returns None for Nop,
 /// Return Some(l) for High/Low
 /// Option is used to filter out Nops
@@ -259,7 +260,7 @@ fn levels_to_ints(l: Level) -> Option<u8> {
 ///
 /// * `len`: the length to translate
 ///
-/// #### returns: Chain<Take<Repeat<u8>>, Once<u8>>
+/// #### returns: [Chain<Take<Repeat<u8>>, Once<u8>>]
 ///
 ///
 /// ### Examples
@@ -273,14 +274,14 @@ fn lengths_to_pio_byte_code_ints(len: u8) -> Chain<Take<Repeat<u8>>, Once<u8>> {
     iter::repeat(1u8).take(repeats).chain(once(0u8))
 }
 
-/// A helper function to repeat a value [n], [repeat] times
+/// A helper function to repeat a value `n`, `repeat` times
 ///
 /// ### Arguments
 ///
 /// * `repeats`: the number of time to repeat n
 /// * `n`: the value to repeat
 ///
-/// #### returns: Take<Repeat<u8>>
+/// #### returns: [Take<Repeat<u8>>]
 ///
 ///
 /// ### Examples
@@ -300,7 +301,7 @@ fn repeater(repeats: u8, n: u8) -> Take<Repeat<u8>> {
 ///
 /// * `n`: the data to repeat
 ///
-/// #### returns: Take<Repeat<u8>>
+/// #### returns: [Take<Repeat<u8>>]
 ///
 pub fn repeat4(n: u8) -> Take<Repeat<u8>> {
     repeater(4, n)
@@ -328,7 +329,7 @@ pub type ConvertType<'a> = Batching<IntsListType<'a>, fn(&mut IntsListType) -> O
 ///
 /// * `it`: the iterator
 ///
-/// #### returns: Option<u32>
+/// #### returns: [Option<u32>]
 ///  Some(u32) while there is data in iter
 ///  None when the iterator is empty
 ///
@@ -369,12 +370,10 @@ fn pack_bits_into_u32(it: &mut IntsListType) -> Option<u32> {
 /// ```
 /// "ABCD" -> "BADC"
 /// ```
-fn swap(s: &str) -> SwapType {
-    s
+fn swap(s: &[u8]) -> SwapType {
+    s.iter()
         // -> swap every other char for endianness
-        .chars()
-        .tuples::<(char, char)>()
-        .flat_map(swap_fn)
+        .flat_map(swap_and_split_fn)
 }
 
 fn get_chip_sequences(s: SwapType) -> ChipSequenceType {
@@ -404,7 +403,7 @@ fn add_middle_bits_for_o_qpsk(cs: ChipSequenceType) -> MiddleBitsType {
 ///         repeat4,
 ///    );
 /// ```
-pub fn convert(s: &str, repeat_fn: fn(u8) -> Take<Repeat<u8>>) -> ConvertType {
+pub fn convert(s: &[u8], repeat_fn: fn(u8) -> Take<Repeat<u8>>) -> ConvertType {
     // TODO: make sure there is an even number of characters in s
     // swap for endianness
     let a: SwapType = swap(s);

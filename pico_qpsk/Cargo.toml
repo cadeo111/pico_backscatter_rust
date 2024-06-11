@@ -21,6 +21,10 @@ pio-proc = "0.2"
 pio = "0.2"
 heapless = "0.8.0"
 itertools = { version = "0.13.0", features = [],default-features = false}
+ieee802154 = "0.6"
+byte = "0.2.7"
+crc_all = "0.2.2"
+log = "0.4.21"
 
 
 
