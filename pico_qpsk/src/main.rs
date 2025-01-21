@@ -9,6 +9,7 @@ use bsp::hal::{clocks::Clock, pac, sio::Sio, watchdog::Watchdog};
 use bsp::Pins;
 use cortex_m::delay::Delay;
 use defmt::*;
+use defmt::panic;
 #[allow(unused_imports)]
 use defmt_rtt as _;
 use embedded_hal::digital::OutputPin;
@@ -302,7 +303,9 @@ fn get_generated_frame_bytes() -> Vec<u8, MAX_FRAME_SIZE> {
         &payload,
     )
     .unwrap();
-    let frame_bytes = frame.to_bytes().unwrap();
+    let frame_bytes = frame.to_bytes().unwrap_or_else(|err|{
+       panic!("Failed to convert frame to bytes, this should never happen ERR:{:?}", err);
+    });
     info!("Created frame -> :{=[u8]:#x}", &frame_bytes);
     frame_bytes
 }

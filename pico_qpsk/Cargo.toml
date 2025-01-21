@@ -24,8 +24,11 @@ itertools = { version = "0.13.0", features = [],default-features = false}
 ieee802154 = "0.6"
 byte = "0.2.7"
 crc_all = "0.2.2"
-log = "0.4.21"
 
+[[bin]]
+name="pico_qpsk"
+test=false
+bench=false
 
 
 # cargo build/run

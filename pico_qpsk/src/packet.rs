@@ -1,5 +1,6 @@
-use byte::BytesExt;
+use byte::{BytesExt};
 use crc_all::CrcAlgo;
+use defmt::{Format, Formatter};
 use heapless::Vec;
 use ieee802154::mac::{
     Address, FooterMode, Frame, FrameContent, FrameSerDesContext, FrameType, FrameVersion, Header, PanId,
@@ -31,6 +32,31 @@ pub enum FrameConstructionError {
     FrameWrite(byte::Error),
     VecLen,
     MacFrameLength,
+}
+impl Format for FrameConstructionError {
+    fn format(&self, fmt: Formatter) {
+        match self {
+            FrameConstructionError::FrameWrite(byte_err) => {
+                defmt::write!(fmt, "FrameWrite(");
+                match byte_err {
+                    byte::Error::Incomplete => {
+                        defmt::write!(fmt, "byte::Error::Incomplete");
+                    }
+                    byte::Error::BadOffset(size) => {
+                        defmt::write!(fmt, "byte::Error::BadOffset({})", size);
+                    }
+                    byte::Error::BadInput { err } => {
+                        defmt::write!(fmt, "byte::Error::BadInput({})", err);
+                    }
+                }
+                defmt::write!(fmt, ")");
+            }
+            FrameConstructionError::VecLen => defmt::write!(fmt, "FrameConstructionError::VecLen"),
+            FrameConstructionError::MacFrameLength => {
+                defmt::write!(fmt, "FrameConstructionError::MacFrameLength")
+            }
+        }
+    }
 }
 
 /// Physical packet preamble

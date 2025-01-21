@@ -146,7 +146,6 @@ fn add_middle(prev: &mut u8, current: u8) -> Option<[u8; 2]> {
 ///
 ///
 ///  ie 4 cycles low, 8 cycles high, 4 cycles low
-
 fn chips_to_waves(bit_chip2: u8) -> [Level; 3] {
     match bit_chip2 {
         0b00 => {
@@ -187,7 +186,6 @@ fn chips_to_waves(bit_chip2: u8) -> [Level; 3] {
 ///  High/Low when it changes
 ///
 /// Nop is used so that there is a return value for every time this is called
-
 fn combine_waves(state: &mut Level, next: Level) -> Option<Level> {
     match next {
         Level::High(next_len) => {
