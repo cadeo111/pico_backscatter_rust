@@ -67,12 +67,7 @@ fn help(serial: &mut USBSerial) {
     writeln!(serial, "{}", "Available commands:".fg::<Green>()).expect("write error:help");
     writeln!(serial, "\t{}", "- restart > restart device".fg::<Green>()).expect("write error:help");
     writeln!(serial, "\t{}", "- help > this menu".fg::<Green>()).expect("write error:help");
-    writeln!(
-        serial,
-        "\t{}",
-        "- sgp <interval> <number_packets>".fg::<Green>()
-    )
-    .expect("write error:help");
+    writeln!(serial, "\t{}", "- sgp <interval> <number_packets>".fg::<Green>()).expect("write error:help");
     writeln!(
         serial,
         "\t\t{}",

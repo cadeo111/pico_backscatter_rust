@@ -1,4 +1,4 @@
-use byte::{BytesExt};
+use byte::BytesExt;
 use crc_all::CrcAlgo;
 use defmt::{Format, Formatter};
 use heapless::Vec;

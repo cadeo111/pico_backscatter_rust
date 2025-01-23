@@ -2,16 +2,16 @@
 // use core::fmt::Write;
 // use defmt::{write as dmf_write, Format, Formatter};
 // use heapless::String;
-// 
+//
 // pub struct DefmtErrorString(anyhow::Error);
-// 
+//
 // impl From<anyhow::Error> for DefmtErrorString {
 //     fn from(value: Error) -> Self {
 //         Self(value)
 //     }
 // }
-// 
-// 
+//
+//
 // impl DefmtErrorString {
 //     fn get_str(&self) -> (Option<String<100>>, Option<String<500>>, Option<String<5000>>) {
 //         {
@@ -30,10 +30,10 @@
 //             return (Some(str), None, None);
 //         }
 //     }
-// 
+//
 // }
 // impl Format for DefmtErrorString {
-//     
+//
 //     fn format(&self, fmt: Formatter) {
 //         let (short, long, long_long) = self.get_str();
 //         if let Some(short) = short {

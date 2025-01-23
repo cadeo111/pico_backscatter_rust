@@ -197,21 +197,19 @@ impl<'usb> USBSerial<'usb> {
         None
     }
 
-    
     // ctrl-c is 3 on serial which is etx end text
-    pub fn poll_is_etx(&mut self)  -> bool {
-        if let Some((buff, len)) = self.poll(){
+    pub fn poll_is_etx(&mut self) -> bool {
+        if let Some((buff, len)) = self.poll() {
             if len > 0 {
-                for b in buff{
+                for b in buff {
                     if b == 3 {
                         return true;
                     }
                 }
             }
         }
-       false
+        false
     }
-
 
     // this might not work on windows
     pub fn poll_until_enter<const MAX_BUFFER_SIZE: usize>(
@@ -237,7 +235,8 @@ impl<'usb> USBSerial<'usb> {
                             info!("-> popping last key off vec ");
                             vec.pop();
                             if echo {
-                                write!(self, "{}{}{}", 8u8 as char, 127u8 as char,8u8 as char).expect("failed to echo delete key!");
+                                write!(self, "{}{}{}", 8u8 as char, 127u8 as char, 8u8 as char)
+                                    .expect("failed to echo delete key!");
                             }
                         }
                         continue;
