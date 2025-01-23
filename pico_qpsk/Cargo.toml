@@ -10,7 +10,7 @@ cortex-m-rt = "0.7"
 embedded-hal = { version = "1.0.0" }
 
 #anyhow = { version = "1.0", default-features = false }
-
+owo-colors = "3"
 defmt = "0.3"
 defmt-rtt = "0.4"
 panic-probe = { version = "0.3", features = ["print-defmt"] }

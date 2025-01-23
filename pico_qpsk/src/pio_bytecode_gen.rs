@@ -123,6 +123,7 @@ fn hex_to_chips(c: u8) -> [u8; 16] {
 ///
 /// #### returns: Option<[u8; 2]>
 ///  return the intermediate chip and the next chip
+#[allow(clippy::unnecessary_wraps)]
 fn add_middle(prev: &mut u8, current: u8) -> Option<[u8; 2]> {
     // middle will have q from previous, i from next
     let middle: u8 = (*prev & 0b01) | (current & 0b10);
