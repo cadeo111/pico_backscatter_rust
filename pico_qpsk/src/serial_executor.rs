@@ -1,4 +1,4 @@
-use crate::pio_bytecode_gen::ConvertType;
+use crate::pio_bytecode_gen::ConvertIterType;
 use crate::usb_serial::USBSerial;
 use core::fmt::Write;
 use cortex_m::delay::Delay;
@@ -104,7 +104,7 @@ fn send_generic_packet(
     number_packets: u32,
     tx: &mut Tx<(PIO0, SM0)>,
     start_pio_execution: &mut (impl FnMut() + Sized),
-    iter_frame: &mut ConvertType,
+    iter_frame: &mut ConvertIterType,
 ) {
     writeln!(serial, "sending generic packet... (Not implemented yet)")
         .expect("write error:send_generic_packet");
@@ -155,7 +155,7 @@ pub fn executor(
     delay: &mut Delay,
     tx: &mut Tx<(PIO0, SM0)>,
     start_pio_execution: &mut (impl FnMut() + Sized),
-    iter_frame: &mut ConvertType,
+    iter_frame: &mut ConvertIterType,
 ) -> ! {
     let mut vec = heapless::Vec::<u8, 64>::new();
     loop {

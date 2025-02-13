@@ -314,7 +314,6 @@ pub fn repeat4(n: u8) -> Take<Repeat<u8>> {
     repeater(4, n)
 }
 
-
 /// repeat 1 times,
 ///
 /// necessary for typing reasons, can't return a closure type via a iterator
@@ -329,7 +328,7 @@ pub fn repeat1(n: u8) -> Take<Repeat<u8>> {
     repeater(1, n)
 }
 
-pub type ConvertType<'a> = Batching<IntsListType<'a>, fn(&mut IntsListType) -> Option<u32>>;
+pub type ConvertIterType<'a> = Batching<IntsListType<'a>, fn(&mut IntsListType) -> Option<u32>>;
 
 /// from an iterator of 0 and 1, pack them into a u32
 ///
@@ -401,7 +400,7 @@ fn add_middle_bits_for_o_qpsk(cs: ChipSequenceType) -> MiddleBitsType {
 /// * `s`: the hex string to translate to pio bytecode
 /// * `repeat_fn`: function that defines how many repeats of the waveform there are, see [repeat4]
 ///
-/// returns:  [ConvertType]
+/// returns:  [ConvertIterType]
 ///
 /// # Examples
 ///
@@ -415,7 +414,7 @@ pub fn convert<'a>(
     s: &'a [u8],
     repeat_fn: fn(u8) -> Take<Repeat<u8>>,
     waves: &'a [[Level; 3]; 4],
-) -> ConvertType<'a> {
+) -> ConvertIterType<'a> {
     // TODO: make sure there is an even number of characters in s
     // swap for endianness
     let a: SwapType = swap(s);
@@ -442,28 +441,9 @@ pub fn convert<'a>(
         c1.filter_map(levels_to_ints as fn(Level) -> Option<u8>)
             .flat_map(lengths_to_pio_byte_code_ints as fn(u8) -> Chain<Take<Repeat<u8>>, Once<u8>>),
     );
-    let c2: ConvertType = c1_1.batching(pack_bits_into_u32 as fn(&mut IntsListType) -> Option<u32>);
+    let c2: ConvertIterType = c1_1.batching(pack_bits_into_u32 as fn(&mut IntsListType) -> Option<u32>);
 
     c2
 }
 
-pub fn generate_waves<const ChipCount: u8>() -> [[Level; 3]; 4] {
-    const {
-        assert!(ChipCount % 4 == 0, "Chip Count must be evenly divisable by 4");
-        assert!(ChipCount % 2 == 0, "Chip Count must be evenly divisable by 2");
-    }
-    [
-        [
-            Level::Low(ChipCount / 4),
-            Level::High(ChipCount / 2),
-            Level::Low(ChipCount / 4),
-        ],
-        [Level::Low(ChipCount / 2), Level::High(ChipCount / 2), Level::Nop],
-        [Level::High(ChipCount / 2), Level::Low(ChipCount / 2), Level::Nop],
-        [
-            Level::High(ChipCount / 4),
-            Level::Low(ChipCount / 2),
-            Level::High(ChipCount / 4),
-        ],
-    ]
-}
+
