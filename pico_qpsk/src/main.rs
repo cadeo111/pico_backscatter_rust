@@ -25,7 +25,7 @@ use rp_pico::hal::Clock;
 use rp_pico::pac::RESETS;
 
 use crate::packet::PhysicalFrame;
-use crate::pio_bytecode_gen::{convert, repeat4};
+use crate::pio_bytecode_gen::{convert, generate_waves, repeat1, repeat4};
 use crate::serial_executor::executor;
 use crate::usb_serial::{init_usb_bus, USBSerial};
 // this allows panic handling
@@ -278,6 +278,7 @@ where
         .autopull(true)
         .pull_threshold(32)
         .out_shift_direction(ShiftDirection::Left)
+        .clock_divisor_fixed_point(4, 0)
         .build(sm0);
 
     sm.set_pindirs([(antenna_pin_id, bsp::hal::pio::PinDir::Output)]);
@@ -360,7 +361,8 @@ fn main() -> ! {
     let (mut tx, mut start_pio_execution) = initialize_pio(pins.gpio3, pins.gpio6, pp.PIO0, &mut pp.RESETS);
 
     let generated_frame_bytes = get_generated_frame_bytes();
-    let mut iter_frame = convert(&generated_frame_bytes, repeat4);
+    let waves = generate_waves::<16>();
+    let mut iter_frame = convert(&generated_frame_bytes, repeat1, &waves);
 
     executor(
         &mut serial,

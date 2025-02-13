@@ -1,5 +1,5 @@
 use core::iter;
-use core::iter::{once, Chain, FilterMap, FlatMap, Flatten, Once, Repeat, Scan, Skip, Take};
+use core::iter::{once, Chain, FilterMap, FlatMap, Flatten, Once, Repeat, Scan, Skip, Take, Zip};
 use core::slice::Iter;
 
 use itertools::{Batching, Itertools};
@@ -58,10 +58,13 @@ const CHIP_ARRAY: &[[u8; 16]] = &[
 type SwapType<'a> = FlatMap<Iter<'a, u8>, [u8; 2], fn(&u8) -> [u8; 2]>;
 type ChipSequenceType<'a> = FlatMap<SwapType<'a>, [u8; 16], fn(u8) -> [u8; 16]>;
 type MiddleBitsType<'a> = Skip<Flatten<Scan<ChipSequenceType<'a>, u8, fn(&mut u8, u8) -> Option<[u8; 2]>>>>;
-type RepeatType<'a> = FlatMap<MiddleBitsType<'a>, Take<Repeat<u8>>, fn(u8) -> Take<Repeat<u8>>>;
+type RepeatType<'a> = Zip<
+    FlatMap<MiddleBitsType<'a>, Take<Repeat<u8>>, fn(u8) -> Take<Repeat<u8>>>,
+    Repeat<&'a [[Level; 3]; 4]>,
+>;
 
 type LengthsType<'a> = Scan<
-    FlatMap<RepeatType<'a>, [Level; 3], fn(u8) -> [Level; 3]>,
+    FlatMap<RepeatType<'a>, [Level; 3], fn((u8, &[[Level; 3]; 4])) -> [Level; 3]>,
     Level,
     fn(&mut Level, Level) -> Option<Level>,
 >;
@@ -146,24 +149,29 @@ fn add_middle(prev: &mut u8, current: u8) -> Option<[u8; 2]> {
 ///  ie [Level::Low(4), Level::High(8), Level::Low(4)];
 ///
 ///
-///  ie 4 cycles low, 8 cycles high, 4 cycles low
-fn chips_to_waves(bit_chip2: u8) -> [Level; 3] {
+///  ie 4 cycles low, 8 cycles high, 4 cycles lo
+fn chips_to_waves(input: (u8, &[[Level; 3]; 4])) -> [Level; 3] {
+    let (bit_chip2, waves) = input;
     match bit_chip2 {
         0b00 => {
             //0000111111110000
-            [Level::Low(4), Level::High(8), Level::Low(4)]
+            // [Level::Low(4), Level::High(8), Level::Low(4)]
+            waves[0]
         }
         0b01 => {
             //0000000011111111
-            [Level::Low(8), Level::High(8), Level::Nop]
+            // [Level::Low(8), Level::High(8), Level::Nop]
+            waves[1]
         }
         0b10 => {
             // 1111111100000000
-            [Level::High(8), Level::Low(8), Level::Nop]
+            // [Level::High(8), Level::Low(8), Level::Nop]
+            waves[2]
         }
         0b11 => {
             //1111000000001111
-            [Level::High(4), Level::Low(8), Level::High(4)]
+            // [Level::High(4), Level::Low(8), Level::High(4)]
+            waves[3]
         }
 
         _ => {
@@ -306,6 +314,7 @@ pub fn repeat4(n: u8) -> Take<Repeat<u8>> {
     repeater(4, n)
 }
 
+
 /// repeat 1 times,
 ///
 /// necessary for typing reasons, can't return a closure type via a iterator
@@ -402,7 +411,11 @@ fn add_middle_bits_for_o_qpsk(cs: ChipSequenceType) -> MiddleBitsType {
 ///         repeat4,
 ///    );
 /// ```
-pub fn convert(s: &[u8], repeat_fn: fn(u8) -> Take<Repeat<u8>>) -> ConvertType {
+pub fn convert<'a>(
+    s: &'a [u8],
+    repeat_fn: fn(u8) -> Take<Repeat<u8>>,
+    waves: &'a [[Level; 3]; 4],
+) -> ConvertType<'a> {
     // TODO: make sure there is an even number of characters in s
     // swap for endianness
     let a: SwapType = swap(s);
@@ -415,11 +428,12 @@ pub fn convert(s: &[u8], repeat_fn: fn(u8) -> Take<Repeat<u8>>) -> ConvertType {
 
     let b3: RepeatType = b2
         // repeat the chips the number of times needed
-        .flat_map(repeat_fn);
+        .flat_map(repeat_fn)
+        .zip(iter::repeat(waves));
 
     let c1: LengthsType = b3
         // translate chips into waves
-        .flat_map(chips_to_waves as fn(u8) -> [Level; 3])
+        .flat_map(chips_to_waves as fn((u8, &[[Level; 3]; 4])) -> [Level; 3])
         .scan(
             Level::Low(0),
             combine_waves as fn(&mut Level, Level) -> Option<Level>,
@@ -431,4 +445,25 @@ pub fn convert(s: &[u8], repeat_fn: fn(u8) -> Take<Repeat<u8>>) -> ConvertType {
     let c2: ConvertType = c1_1.batching(pack_bits_into_u32 as fn(&mut IntsListType) -> Option<u32>);
 
     c2
+}
+
+pub fn generate_waves<const ChipCount: u8>() -> [[Level; 3]; 4] {
+    const {
+        assert!(ChipCount % 4 == 0, "Chip Count must be evenly divisable by 4");
+        assert!(ChipCount % 2 == 0, "Chip Count must be evenly divisable by 2");
+    }
+    [
+        [
+            Level::Low(ChipCount / 4),
+            Level::High(ChipCount / 2),
+            Level::Low(ChipCount / 4),
+        ],
+        [Level::Low(ChipCount / 2), Level::High(ChipCount / 2), Level::Nop],
+        [Level::High(ChipCount / 2), Level::Low(ChipCount / 2), Level::Nop],
+        [
+            Level::High(ChipCount / 4),
+            Level::Low(ChipCount / 2),
+            Level::High(ChipCount / 4),
+        ],
+    ]
 }
