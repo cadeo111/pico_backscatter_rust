@@ -1,33 +1,21 @@
 #![no_std]
 #![no_main]
 use crate::packet::PhysicalFrame;
-use crate::pio_bytecode_gen::{convert, repeat1, repeat4};
-use crate::pio_helpers::{initialize_pio, StandardTransmitOption};
+
+use crate::pio_helpers::{get_testing_generated_frame_bytes, initialize_pio, StandardTransmitOption};
 use crate::serial_executor::executor;
-use crate::usb_serial::{init_usb_bus, USBSerial};
+use crate::usb_serial::USBSerial;
 use bsp::entry;
-use bsp::hal::clocks::ClocksManager;
-use bsp::hal::fugit::RateExtU32;
-use bsp::hal::pio::{Buffers, PIOExt, ShiftDirection};
-use bsp::hal::{pac, sio::Sio, watchdog::Watchdog};
-use bsp::Pins;
-use cortex_m::delay::Delay;
 use defmt::panic;
 use defmt::*;
 #[allow(unused_imports)]
 use defmt_rtt as _;
-use embedded_hal::digital::OutputPin;
 use heapless::Vec;
 use ieee802154::mac::{PanId, ShortAddress};
 use itertools::Itertools;
 #[allow(unused_imports)]
 use panic_probe as _;
 use rp_pico as bsp;
-use rp_pico::hal::gpio::bank0::Gpio3;
-use rp_pico::hal::gpio::{Function, FunctionPio0, Pin, PinId, PullNone, PullType, ValidFunction};
-use rp_pico::hal::pio::{Tx, SM0};
-use rp_pico::hal::{reset, Clock};
-use rp_pico::pac::RESETS;
 // this allows panic handling
 
 mod board_setup;
@@ -39,37 +27,6 @@ mod pio_helpers;
 mod serial_executor;
 mod usb_serial;
 
-const MAX_PAYLOAD_SIZE: usize = 4;
-const MAX_FRAME_SIZE: usize = to_max_frame_size!(MAX_PAYLOAD_SIZE);
-fn get_generated_frame_bytes() -> Vec<u8, MAX_FRAME_SIZE> {
-    let payload: [u8; MAX_PAYLOAD_SIZE] = [0x01, 0x02, 0xA, 0xB];
-    let frame: PhysicalFrame<MAX_FRAME_SIZE> = PhysicalFrame::new(
-        1,
-        PanId(0x4444),        // dest
-        ShortAddress(0xABCD), // dest
-        PanId(0x2222),        // src
-        ShortAddress(0x1234), // src
-        &payload,
-    )
-    .unwrap();
-    let frame_bytes = frame.to_bytes().unwrap_or_else(|err| {
-        panic!(
-            "Failed to convert frame to bytes, this should never happen ERR:{:?}",
-            err
-        );
-    });
-    info!("Created frame -> :{=[u8]:#x}", &frame_bytes);
-    frame_bytes
-}
-
-fn get_hex_string_as_bytes<const MAX_VEC_SIZE: usize>(message_str: &str) -> Vec<u8, MAX_VEC_SIZE> {
-    let str_iter = message_str
-        .chars()
-        .map(|c| c.to_digit(16).unwrap().try_into().unwrap())
-        .tuples()
-        .flat_map(|(a, b): (u8, u8)| [a << 4 | b]);
-    Vec::from_iter(str_iter)
-}
 
 #[entry]
 fn main() -> ! {
@@ -86,9 +43,9 @@ fn main() -> ! {
     // set the correct clock divider
     change_clk_divider(transmission_type.state_machine_clock());
 
-    let generated_frame_bytes = get_generated_frame_bytes();
+    let generated_frame_bytes = get_testing_generated_frame_bytes();
     // let waves = generate_waves::<16>();
-    let mut iter_frame = convert(&generated_frame_bytes, repeat1, &wave_array!(16));
+    let mut iter_frame = transmission_type.convert(&generated_frame_bytes);
 
     executor(
         &mut serial,

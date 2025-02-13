@@ -1,15 +1,17 @@
-use crate::board_setup;
-use cortex_m::delay::Delay;
 use defmt::info;
 use embedded_hal::digital::OutputPin;
+use heapless::Vec;
+use ieee802154::mac::{PanId, ShortAddress};
+use itertools::Itertools;
 use rp_pico as bsp;
-use rp_pico::hal::clocks::ClocksManager;
 use rp_pico::hal::gpio::bank0::Gpio3;
 use rp_pico::hal::gpio::{Function, FunctionPio0, Pin, PinId, PullNone, PullType, ValidFunction};
 use rp_pico::hal::pio::{Buffers, PIOExt, ShiftDirection, Tx, SM0};
-use rp_pico::pac::{Peripherals, PIO0, RESETS};
-use rp_pico::Pins;
+use rp_pico::pac::RESETS;
 use crate::board_setup::ProcessorClockConfig;
+use crate::packet::PhysicalFrame;
+use crate::pio_bytecode_gen::{convert_advanced, repeatN, ConvertIterType};
+use crate::to_max_frame_size;
 
 /// Initialize the PIO block with the OQPSK state machine
 /// this PIO program can generate any signal that has at least 4 cycle low and high
@@ -152,6 +154,8 @@ macro_rules! wave_array {
 
 pub enum StandardTransmitOption {
     Clk128MHzOffset8MHz,
+    Clk128MHzOffset6MHz,
+    Clk128MHzOffset4MHz,
     Clk128MHzOffset2MHz,
 }
 
@@ -160,18 +164,71 @@ impl StandardTransmitOption {
         match self {
             StandardTransmitOption::Clk128MHzOffset8MHz => StateMachineClockDividerSetting::None,
             StandardTransmitOption::Clk128MHzOffset2MHz => StateMachineClockDividerSetting::Integer(4),
+            StandardTransmitOption::Clk128MHzOffset6MHz => StateMachineClockDividerSetting::None,
+            StandardTransmitOption::Clk128MHzOffset4MHz => StateMachineClockDividerSetting::Integer(2),
         }
     }
     pub fn processor_clock(&self) -> ProcessorClockConfig{
         match self {
             StandardTransmitOption::Clk128MHzOffset8MHz => ProcessorClockConfig::F128MHz,
             StandardTransmitOption::Clk128MHzOffset2MHz => ProcessorClockConfig::F128MHz,
+            StandardTransmitOption::Clk128MHzOffset6MHz => ProcessorClockConfig::F144MHz,
+            StandardTransmitOption::Clk128MHzOffset4MHz => ProcessorClockConfig::F128MHz
         }
     }
+
+    pub fn convert<'a>(&self, message_bytes: &'a [u8]) -> ConvertIterType<'a>{
+        match self {
+            StandardTransmitOption::Clk128MHzOffset2MHz =>
+                convert_advanced(message_bytes, repeatN::<1>, &wave_array!(16)),
+            StandardTransmitOption::Clk128MHzOffset8MHz => 
+                convert_advanced(message_bytes, repeatN::<4>, &wave_array!(16)),
+            StandardTransmitOption::Clk128MHzOffset6MHz =>
+                convert_advanced(message_bytes, repeatN::<3>, &wave_array!(24)),
+            StandardTransmitOption::Clk128MHzOffset4MHz =>
+                convert_advanced(message_bytes, repeatN::<2>, &wave_array!(16)),
+        }
+        
+    }
+
 }
 
 pub enum StateMachineClockDividerSetting {
     Fixed { integer_part: u16, fractional_part: u8 },
     Integer(u16),
     None,
+}
+
+
+
+const MAX_PAYLOAD_SIZE: usize = 4;
+const MAX_FRAME_SIZE: usize = to_max_frame_size!(MAX_PAYLOAD_SIZE);
+pub fn get_testing_generated_frame_bytes() -> Vec<u8, MAX_FRAME_SIZE> {
+    let payload: [u8; MAX_PAYLOAD_SIZE] = [0x01, 0x02, 0xA, 0xB];
+    let frame: PhysicalFrame<MAX_FRAME_SIZE> = PhysicalFrame::new(
+        1,
+        PanId(0x4444),        // dest
+        ShortAddress(0xABCD), // dest
+        PanId(0x2222),        // src
+        ShortAddress(0x1234), // src
+        &payload,
+    )
+        .unwrap();
+    let frame_bytes = frame.to_bytes().unwrap_or_else(|err| {
+        defmt::panic!(
+            "Failed to convert frame to bytes, this should never happen ERR:{:?}",
+            err
+        );
+    });
+    info!("Created frame -> :{=[u8]:#x}", &frame_bytes);
+    frame_bytes
+}
+
+fn get_hex_string_as_bytes<const MAX_VEC_SIZE: usize>(message_str: &str) -> Vec<u8, MAX_VEC_SIZE> {
+    let str_iter = message_str
+        .chars()
+        .map(|c| c.to_digit(16).unwrap().try_into().unwrap())
+        .tuples()
+        .flat_map(|(a, b): (u8, u8)| [a << 4 | b]);
+    Vec::from_iter(str_iter)
 }

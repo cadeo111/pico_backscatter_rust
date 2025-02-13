@@ -300,33 +300,27 @@ fn repeater(repeats: u8, n: u8) -> Take<Repeat<u8>> {
     iter::repeat(n).take(repeats as usize)
 }
 
-/// repeat 4 times,
-///
-/// necessary for typing reasons, can't return a closure type via a iterator
-///
-/// ### Arguments
-///
-/// * `n`: the data to repeat
-///
-/// #### returns: [Take<Repeat<u8>>]
-///
-pub fn repeat4(n: u8) -> Take<Repeat<u8>> {
-    repeater(4, n)
+
+
+
+/// repeat n [TIMES] times,
+/// 
+/// # Arguments 
+/// 
+/// * `n`: the number to repeat (usually a chip value)
+/// 
+/// returns: Take<Repeat<u8>> 
+/// 
+/// # Examples 
+/// 
+/// ```
+/// 
+/// ```
+pub fn repeatN<const TIMES:u8>(n: u8) -> Take<Repeat<u8>>{
+    repeater(TIMES, n)
 }
 
-/// repeat 1 times,
-///
-/// necessary for typing reasons, can't return a closure type via a iterator
-///
-/// ### Arguments
-///
-/// * `n`: the data to repeat
-///
-/// #### returns: Take<Repeat<u8>>
-#[allow(dead_code)]
-pub fn repeat1(n: u8) -> Take<Repeat<u8>> {
-    repeater(1, n)
-}
+
 
 pub type ConvertIterType<'a> = Batching<IntsListType<'a>, fn(&mut IntsListType) -> Option<u32>>;
 
@@ -410,7 +404,7 @@ fn add_middle_bits_for_o_qpsk(cs: ChipSequenceType) -> MiddleBitsType {
 ///         repeat4,
 ///    );
 /// ```
-pub fn convert<'a>(
+pub fn convert_advanced<'a>(
     s: &'a [u8],
     repeat_fn: fn(u8) -> Take<Repeat<u8>>,
     waves: &'a [[Level; 3]; 4],
@@ -445,5 +439,3 @@ pub fn convert<'a>(
 
     c2
 }
-
-

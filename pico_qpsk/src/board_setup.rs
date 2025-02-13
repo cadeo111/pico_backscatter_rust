@@ -1,15 +1,15 @@
+use crate::usb_serial::init_usb_bus;
 use cortex_m::delay::Delay;
 use defmt::info;
 use rp_pico as bsp;
 use rp_pico::hal::clocks::ClocksManager;
 use rp_pico::hal::fugit::RateExtU32;
+use rp_pico::hal::pll::PLLConfig;
+use rp_pico::hal::usb::UsbBus;
 use rp_pico::hal::{Clock, Sio, Watchdog};
 use rp_pico::pac::{Peripherals, PIO0, RESETS};
 use rp_pico::{pac, Pins};
-use rp_pico::hal::pll::PLLConfig;
-use rp_pico::hal::usb::UsbBus;
 use usb_device::bus::UsbBusAllocator;
-use crate::usb_serial::init_usb_bus;
 
 /// Sets the system clock to 128MHz
 ///
@@ -37,7 +37,7 @@ use crate::usb_serial::init_usb_bus;
 ///     );
 /// ```
 fn setup_clocks(
-    processor_clk_config:PLLConfig,
+    processor_clk_config: PLLConfig,
     pac_watchdog: pac::WATCHDOG,
     pac_pll_sys_device: pac::PLL_SYS,
     pac_clocks_block: pac::CLOCKS,
@@ -169,7 +169,9 @@ fn setup_pins_delay(
     (pins, delay)
 }
 
-pub fn setup(processor_clk_config: ProcessorClockConfig) -> (Pins, Delay, RESETS, UsbBusAllocator<UsbBus>, PIO0) {
+pub fn setup(
+    processor_clk_config: ProcessorClockConfig,
+) -> (Pins, Delay, RESETS, UsbBusAllocator<UsbBus>, PIO0) {
     // get the hardware peripherals
     let mut pp = Peripherals::take().unwrap();
 
@@ -199,17 +201,18 @@ pub fn setup(processor_clk_config: ProcessorClockConfig) -> (Pins, Delay, RESETS
         clocks.usb_clock,
         &mut pp.RESETS,
     );
-    
+
     (pins, delay, pp.RESETS, bus, pp.PIO0)
 }
 
 pub enum ProcessorClockConfig {
     Custom(PLLConfig),
     F128MHz,
+    F144MHz,
 }
 
 impl ProcessorClockConfig {
-    pub fn pll(self) -> PLLConfig{
+    pub fn pll(self) -> PLLConfig {
         match self {
             ProcessorClockConfig::Custom(pll) => pll,
             ProcessorClockConfig::F128MHz => PLLConfig {
@@ -227,22 +230,28 @@ impl ProcessorClockConfig {
                 //
                 // > Jitter is minimised by running the VCO at the highest possible
                 // > frequency, so that higher post-divide values can be used.
-                // 
+                //
                 // see python script to generate vco values for a specific clock frequency
                 // https://github.com/raspberrypi/pico-sdk/blob/95ea6acad131124694cda1c162c52cd30e0aece0/src/rp2_common/hardware_clocks/scripts/vcocalc.py
                 vco_freq: 1536.MHz(),
                 refdiv: 1,
                 post_div1: 6,
                 post_div2: 2,
-            }
+            },
+            ProcessorClockConfig::F144MHz => PLLConfig {
+                // see comment above ProcessorClockConfig::F128MHz for more info
+                // vcocalc.py output:
+                // Requested: 144.0 MHz
+                // Achieved:  144.0 MHz
+                // REFDIV:    1
+                // FBDIV:     120 (VCO = 1440.0 MHz)
+                // PD1:       5
+                // PD2:       2
+                vco_freq: 1440.MHz(),
+                refdiv: 1,
+                post_div1: 5,
+                post_div2: 2,
+            },
         }
     }
 }
-
-
-
-
-
-
-
-
