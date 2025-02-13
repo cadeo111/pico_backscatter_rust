@@ -304,19 +304,19 @@ fn repeater(repeats: u8, n: u8) -> Take<Repeat<u8>> {
 
 
 /// repeat n [TIMES] times,
-/// 
-/// # Arguments 
-/// 
+///
+/// # Arguments
+///
 /// * `n`: the number to repeat (usually a chip value)
-/// 
-/// returns: Take<Repeat<u8>> 
-/// 
-/// # Examples 
-/// 
+///
+/// returns: Take<Repeat<u8>>
+///
+/// # Examples
+///
 /// ```
-/// 
+///
 /// ```
-pub fn repeatN<const TIMES:u8>(n: u8) -> Take<Repeat<u8>>{
+pub fn repeat_n<const TIMES:u8>(n: u8) -> Take<Repeat<u8>>{
     repeater(TIMES, n)
 }
 

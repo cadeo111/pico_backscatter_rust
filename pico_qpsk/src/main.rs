@@ -1,18 +1,12 @@
 #![no_std]
 #![no_main]
-use crate::packet::PhysicalFrame;
 
 use crate::pio_helpers::{get_testing_generated_frame_bytes, initialize_pio, StandardTransmitOption};
 use crate::serial_executor::executor;
 use crate::usb_serial::USBSerial;
 use bsp::entry;
-use defmt::panic;
-use defmt::*;
 #[allow(unused_imports)]
 use defmt_rtt as _;
-use heapless::Vec;
-use ieee802154::mac::{PanId, ShortAddress};
-use itertools::Itertools;
 #[allow(unused_imports)]
 use panic_probe as _;
 use rp_pico as bsp;

@@ -10,7 +10,7 @@ use rp_pico::hal::pio::{Buffers, PIOExt, ShiftDirection, Tx, SM0};
 use rp_pico::pac::RESETS;
 use crate::board_setup::ProcessorClockConfig;
 use crate::packet::PhysicalFrame;
-use crate::pio_bytecode_gen::{convert_advanced, repeatN, ConvertIterType};
+use crate::pio_bytecode_gen::{convert_advanced, repeat_n, ConvertIterType};
 use crate::to_max_frame_size;
 
 /// Initialize the PIO block with the OQPSK state machine
@@ -152,6 +152,8 @@ macro_rules! wave_array {
     }};
 }
 
+#[allow(clippy::enum_variant_names)]
+#[allow(dead_code)]
 pub enum StandardTransmitOption {
     Clk128MHzOffset8MHz,
     Clk128MHzOffset6MHz,
@@ -180,19 +182,20 @@ impl StandardTransmitOption {
     pub fn convert<'a>(&self, message_bytes: &'a [u8]) -> ConvertIterType<'a>{
         match self {
             StandardTransmitOption::Clk128MHzOffset2MHz =>
-                convert_advanced(message_bytes, repeatN::<1>, &wave_array!(16)),
+                convert_advanced(message_bytes, repeat_n::<1>, &wave_array!(16)),
             StandardTransmitOption::Clk128MHzOffset8MHz => 
-                convert_advanced(message_bytes, repeatN::<4>, &wave_array!(16)),
+                convert_advanced(message_bytes, repeat_n::<4>, &wave_array!(16)),
             StandardTransmitOption::Clk128MHzOffset6MHz =>
-                convert_advanced(message_bytes, repeatN::<3>, &wave_array!(24)),
+                convert_advanced(message_bytes, repeat_n::<3>, &wave_array!(24)),
             StandardTransmitOption::Clk128MHzOffset4MHz =>
-                convert_advanced(message_bytes, repeatN::<2>, &wave_array!(16)),
+                convert_advanced(message_bytes, repeat_n::<2>, &wave_array!(16)),
         }
         
     }
 
 }
 
+#[allow(dead_code)]
 pub enum StateMachineClockDividerSetting {
     Fixed { integer_part: u16, fractional_part: u8 },
     Integer(u16),
@@ -224,6 +227,8 @@ pub fn get_testing_generated_frame_bytes() -> Vec<u8, MAX_FRAME_SIZE> {
     frame_bytes
 }
 
+
+#[allow(dead_code)]
 fn get_hex_string_as_bytes<const MAX_VEC_SIZE: usize>(message_str: &str) -> Vec<u8, MAX_VEC_SIZE> {
     let str_iter = message_str
         .chars()

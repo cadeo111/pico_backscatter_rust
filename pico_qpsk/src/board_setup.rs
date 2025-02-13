@@ -206,6 +206,7 @@ pub fn setup(
 }
 
 pub enum ProcessorClockConfig {
+    #[allow(dead_code)]
     Custom(PLLConfig),
     F128MHz,
     F144MHz,
