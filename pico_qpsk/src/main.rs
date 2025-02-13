@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use crate::pio_helpers::{get_testing_generated_frame_bytes, initialize_pio, StandardTransmitOption};
+use crate::pio_helpers::{ initialize_pio, StandardTransmitOption};
 use crate::serial_executor::executor;
 use crate::usb_serial::USBSerial;
 use bsp::entry;
@@ -21,7 +21,6 @@ mod pio_helpers;
 mod serial_executor;
 mod usb_serial;
 
-
 #[entry]
 fn main() -> ! {
     let transmission_type = StandardTransmitOption::Clk128MHzOffset8MHz;
@@ -31,22 +30,23 @@ fn main() -> ! {
     let mut serial = USBSerial::new(&bus);
 
     // Set up PIO to control transmission
-    let (mut tx, mut start_pio_execution, mut change_clk_divider) =
+    let (mut tx, mut pio_ctrl) =
         initialize_pio(pins.gpio3, pins.gpio6, pio, &mut resets);
 
     // set the correct clock divider
-    change_clk_divider(transmission_type.state_machine_clock());
+    pio_ctrl.change_clock_divider(transmission_type.state_machine_clock());
 
-    let generated_frame_bytes = get_testing_generated_frame_bytes();
+
+
+    // let generated_frame_bytes:Vec<u8, crate::pio_helpers::MAX_FRAME_SIZE>  = get_testing_generated_frame_bytes();
     // let waves = generate_waves::<16>();
-    let mut iter_frame = transmission_type.convert(&generated_frame_bytes);
 
     executor(
         &mut serial,
         &mut delay,
         &mut tx,
-        &mut start_pio_execution,
-        &mut iter_frame,
+        &mut pio_ctrl,
+        &transmission_type,
     );
     //
     //

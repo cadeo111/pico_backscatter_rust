@@ -1,10 +1,12 @@
-use crate::pio_bytecode_gen::ConvertIterType;
+use crate::pio_helpers::{get_seq_frame_bytes, PioControl, StandardTransmitOption};
+use crate::to_max_frame_size;
 use crate::usb_serial::USBSerial;
 use core::fmt::Write;
 use cortex_m::delay::Delay;
 use defmt::info;
 use heapless::{String, Vec};
 use owo_colors::{colors::*, OwoColorize, XtermColors};
+use rp_pico::hal::gpio::PullDown;
 use rp_pico::hal::pio::{Tx, SM0};
 use rp_pico::hal::reset;
 use rp_pico::pac::PIO0;
@@ -103,9 +105,12 @@ fn send_generic_packet(
     interval_ms: u32,
     number_packets: u32,
     tx: &mut Tx<(PIO0, SM0)>,
-    start_pio_execution: &mut (impl FnMut() + Sized),
-    iter_frame: &mut ConvertIterType,
+    pio_ctrl: &mut PioControl<PIO0, PullDown>,
+    transmit_option: &StandardTransmitOption,
 ) {
+    let frame_bytes = get_seq_frame_bytes::<5, { to_max_frame_size!(5) }>();
+    let iter_frame = transmit_option.convert(&frame_bytes);
+
     writeln!(serial, "sending generic packet... (Not implemented yet)")
         .expect("write error:send_generic_packet");
     writeln!(
@@ -117,7 +122,7 @@ fn send_generic_packet(
 
     let mut buffer: Vec<u32, 4000> = Vec::new();
     buffer.extend(iter_frame.clone());
-    start_pio_execution();
+    pio_ctrl.start();
     for i in 0..number_packets {
         info!("sending gen packet from frame... {}/{} ", i + 1, number_packets);
         writeln!(
@@ -134,6 +139,7 @@ fn send_generic_packet(
         }
         delay.delay_ms(interval_ms);
         if serial.poll_is_etx() {
+            pio_ctrl.stop();
             writeln!(
                 serial,
                 "{}",
@@ -143,9 +149,11 @@ fn send_generic_packet(
                     .italic()
             )
             .expect("write error:send_generic_packet");
+
             return;
         }
     }
+    pio_ctrl.stop();
     info!("stopped sending packets");
     writeln!(serial, "{}", "Done!".fg::<Green>()).expect("write error:send_generic_packet");
 }
@@ -154,19 +162,23 @@ pub fn executor(
     serial: &mut USBSerial,
     delay: &mut Delay,
     tx: &mut Tx<(PIO0, SM0)>,
-    start_pio_execution: &mut (impl FnMut() + Sized),
-    iter_frame: &mut ConvertIterType,
+    pio_ctrl: &mut PioControl<PIO0, PullDown>,
+    base_transmit_option: &StandardTransmitOption,
 ) -> ! {
-    let mut vec = heapless::Vec::<u8, 64>::new();
+    let mut command_buffer = Vec::<u8, 64>::new();
     loop {
-        vec.clear();
-        let response = serial.poll_until_enter(&mut vec, true);
+        command_buffer.clear();
+        let response = serial.poll_until_enter(&mut command_buffer, true);
         if response.is_err() {
             writeln!(serial, "command too long, try again").expect("write error:cmd_too_long");
             continue;
         }
         // vec has command
-        let command_string = vec.as_slice().iter().map(|x| *x as char).collect::<String<64>>();
+        let command_string = command_buffer
+            .as_slice()
+            .iter()
+            .map(|x| *x as char)
+            .collect::<String<64>>();
         match Command::from_str(&command_string) {
             Ok(response) => match response {
                 Command::Restart => {
@@ -185,8 +197,8 @@ pub fn executor(
                         interval_ms,
                         number_packets,
                         tx,
-                        start_pio_execution,
-                        iter_frame,
+                        pio_ctrl,
+                        base_transmit_option,
                     );
                 }
             },
