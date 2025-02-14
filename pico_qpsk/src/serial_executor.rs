@@ -122,8 +122,11 @@ fn send_generic_packet(
 
     let mut buffer: Vec<u32, 4000> = Vec::new();
     buffer.extend(iter_frame.clone());
-    pio_ctrl.start();
+
+    info!("packet first int:\n{:#034b}", buffer[0]);
+
     for i in 0..number_packets {
+        let mut started = false;
         info!("sending gen packet from frame... {}/{} ", i + 1, number_packets);
         writeln!(
             serial,
@@ -133,13 +136,19 @@ fn send_generic_packet(
             number_packets
         )
         .expect("write error:send_generic_packet");
+
         for i in &buffer {
-            while tx.is_full() {}
+            while tx.is_full() {
+                if !started {
+                    started = true;
+                    pio_ctrl.start();
+                }
+            }
             tx.write(*i);
         }
+        pio_ctrl.stop();
         delay.delay_ms(interval_ms);
         if serial.poll_is_etx() {
-            pio_ctrl.stop();
             writeln!(
                 serial,
                 "{}",
