@@ -1,11 +1,13 @@
 use crate::board_setup::ProcessorClockConfig;
 use crate::packet::PhysicalFrame;
-use crate::pio_bytecode_gen::{convert_advanced, repeat_n, ConvertIterType};
+use crate::pio_bytecode_gen::{convert_advanced, ConvertIterType};
 use defmt::info;
 use embedded_hal::digital::OutputPin;
 use heapless::Vec;
 use ieee802154::mac::{PanId, ShortAddress};
 use itertools::Itertools;
+use pio::InstructionOperands::JMP;
+use pio::{Instruction, JmpCondition};
 use rp_pico as bsp;
 use rp_pico::hal::gpio::bank0::Gpio3;
 use rp_pico::hal::gpio::{
@@ -30,7 +32,14 @@ where
 {
     pub fn stop(&mut self) {
         self.start_pin.set_high().unwrap();
-        self.sm.restart();
+        self.sm.exec_instruction(Instruction {
+            operands: JMP {
+                condition: JmpCondition::Always,
+                address: 0x0,
+            },
+            delay: 0,
+            side_set: None,
+        });
     }
     pub fn start(&mut self) {
         self.start_pin.set_low().unwrap();
@@ -98,10 +107,25 @@ where
     let (mut pio, sm0, _, _, _) = pio.split(resets);
 
     // Create a pio program
+    // let program = pio_proc::pio_asm!(
+    //     ".wrap_target"
+    //     "wait 0 pin 3",
+    //     "loop:",
+    //     "set pins 0 [1]",
+    //     "loop1:",
+    //     "out x 1",
+    //     "jmp x-- loop1",
+    //     "set pins, 1 [1]",
+    //     "loop2:",
+    //     "out y 1",
+    //     "jmp y-- loop2",
+    //     "jmp loop",
+    //     ".wrap"
+    //     options(max_program_size = 32) // Optional, defaults to 32
+    // );
     let program = pio_proc::pio_asm!(
-        ".wrap_target"
-        "wait 0 pin 3",
-        "loop:",
+        "wait 0 pin 3", // not neccesarily required but without, the first high/low length is not determinite
+        ".wrap_target",
         "set pins 0 [1]",
         "loop1:",
         "out x 1",
@@ -110,8 +134,7 @@ where
         "loop2:",
         "out y 1",
         "jmp y-- loop2",
-        "jmp loop",
-        ".wrap"
+        ".wrap",
         options(max_program_size = 32) // Optional, defaults to 32
     );
 
@@ -137,7 +160,6 @@ where
     info!("PIO setup ok");
 
     let sm: StateMachine<(PIOS, SM0), Running> = sm.start();
-
     info!("PIO start ok");
 
     (tx, PioControl { sm, start_pin })
@@ -173,6 +195,7 @@ macro_rules! wave_array {
 
 #[allow(clippy::enum_variant_names)]
 #[allow(dead_code)]
+#[derive(Copy,Clone,Debug)]
 pub enum StandardTransmitOption {
     Clk128MHzOffset8MHz,
     Clk144MHzOffset6MHz,
@@ -201,16 +224,16 @@ impl StandardTransmitOption {
     pub fn convert<'a>(&self, message_bytes: &'a [u8]) -> ConvertIterType<'a> {
         match self {
             StandardTransmitOption::Clk128MHzOffset2MHz => {
-                convert_advanced(message_bytes, repeat_n::<1>, &wave_array!(16))
+                convert_advanced::<1>(message_bytes, &wave_array!(16))
             }
             StandardTransmitOption::Clk128MHzOffset8MHz => {
-                convert_advanced(message_bytes, repeat_n::<4>, &wave_array!(16))
+                convert_advanced::<4>(message_bytes,  &wave_array!(16))
             }
             StandardTransmitOption::Clk144MHzOffset6MHz => {
-                convert_advanced(message_bytes, repeat_n::<3>, &wave_array!(24))
+                convert_advanced::<3>(message_bytes, &wave_array!(24))
             }
             StandardTransmitOption::Clk128MHzOffset4MHz => {
-                convert_advanced(message_bytes, repeat_n::<2>, &wave_array!(16))
+                convert_advanced::<2>(message_bytes, &wave_array!(16))
             }
         }
     }
@@ -239,10 +262,10 @@ pub enum StateMachineClockDividerSetting {
 /// let payload: [u8; PAYLOAD_SIZE] = [0x01, 0x02, 0xA, 0xB];
 /// let generated_frame_bytes = &get_testing_generated_frame_bytes::<PAYLOAD_SIZE, MAX_FRAME_SIZE>(&payload);
 /// ```
-fn get_testing_generated_frame_bytes<const PAYLOAD_SIZE: usize, const MAX_FRAME_SIZE: usize>(
+fn get_testing_generated_frame_bytes<const MAX_PAYLOAD_SIZE: usize, const MAX_FRAME_SIZE: usize>(
     payload: &[u8],
 ) -> Vec<u8, MAX_FRAME_SIZE> {
-    assert!(payload.len() <= PAYLOAD_SIZE, "payload is too big!");
+    assert!(payload.len() <= MAX_PAYLOAD_SIZE, "payload is too big!");
 
     let frame: PhysicalFrame<MAX_FRAME_SIZE> = PhysicalFrame::new(
         1,
@@ -263,8 +286,9 @@ fn get_testing_generated_frame_bytes<const PAYLOAD_SIZE: usize, const MAX_FRAME_
     frame_bytes
 }
 
-pub fn get_random_payload_frame_bytes<const PAYLOAD_SIZE: usize, const MAX_FRAME_SIZE: usize>(
+pub fn get_random_payload_frame_bytes<const MAX_PAYLOAD_SIZE: usize, const MAX_FRAME_SIZE: usize>(step:usize, size:usize
 ) -> Vec<u8, MAX_FRAME_SIZE> {
+    assert!(size <= MAX_PAYLOAD_SIZE, "payload is too big!");
     const RANDOMS: [u8; 256] = [
         0x9f, 0xe4, 0xda, 0xa8, 0xcf, 0xd9, 0xf6, 0xc1, 0x34, 0xef, 0xbb, 0x71, 0xce, 0x9e, 0xa5, 0xbe, 0x5e,
         0xb5, 0x56, 0x23, 0x12, 0xde, 0xcb, 0xa9, 0xd5, 0x26, 0xe5, 0xde, 0xfa, 0xc6, 0x4d, 0x61, 0xa8, 0xe7,
@@ -283,13 +307,15 @@ pub fn get_random_payload_frame_bytes<const PAYLOAD_SIZE: usize, const MAX_FRAME
         0xe5, 0x71, 0x4d, 0x85, 0xad, 0x70, 0x95, 0x9f, 0xac, 0x94, 0x78, 0x0d, 0xb5, 0xf4, 0x9e, 0x57, 0xda,
         0xde,
     ];
-    const { assert!(PAYLOAD_SIZE < 256) }
-
-    get_testing_generated_frame_bytes::<PAYLOAD_SIZE, MAX_FRAME_SIZE>(&RANDOMS[0..PAYLOAD_SIZE])
+    
+    let payload_vec:Vec<u8, MAX_PAYLOAD_SIZE> = RANDOMS.into_iter().cycle().step_by(step).take(size).collect();
+    
+    get_testing_generated_frame_bytes::<MAX_PAYLOAD_SIZE, MAX_FRAME_SIZE>(&payload_vec)
 }
 
-pub fn get_seq_frame_bytes<const PAYLOAD_SIZE: usize, const MAX_FRAME_SIZE: usize>() -> Vec<u8, MAX_FRAME_SIZE>
+pub fn get_seq_frame_bytes<const MAX_PAYLOAD_SIZE: usize, const MAX_FRAME_SIZE: usize>(size:usize) -> Vec<u8, MAX_FRAME_SIZE>
 {
+    assert!(size <= MAX_PAYLOAD_SIZE, "payload is too big!");
     const SEQ: [u8; 256] = [
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
         0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21,
@@ -308,9 +334,10 @@ pub fn get_seq_frame_bytes<const PAYLOAD_SIZE: usize, const MAX_FRAME_SIZE: usiz
         0xEE, 0xEF, 0xF0, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, 0xF9, 0xFA, 0xFB, 0xFC, 0xFD, 0xFE,
         0xFF,
     ];
-    const { assert!(PAYLOAD_SIZE < 256) }
 
-    get_testing_generated_frame_bytes::<PAYLOAD_SIZE, MAX_FRAME_SIZE>(&SEQ[0..PAYLOAD_SIZE])
+    let payload_vec:Vec<u8, MAX_PAYLOAD_SIZE>  = SEQ.into_iter().cycle().take(size).collect();
+    
+    get_testing_generated_frame_bytes::<MAX_PAYLOAD_SIZE, MAX_FRAME_SIZE>(&payload_vec)
 }
 
 // const MAX_PAYLOAD_SIZE: usize = 4;

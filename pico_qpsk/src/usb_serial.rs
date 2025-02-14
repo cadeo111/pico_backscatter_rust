@@ -1,5 +1,5 @@
 use core::fmt::Write;
-use defmt::{error, info, Format};
+use defmt::{debug, error, info, Format};
 // A shorter alias for the Peripheral Access Crate, which provides low-level
 // register access
 use rp_pico::hal::{clocks, pac};
@@ -51,7 +51,7 @@ impl Write for USBSerial<'_> {
                     }
                     Err(e) => match e {
                         UsbError::WouldBlock => {
-                            info!("USB write buffer full");
+                            debug!("USB write buffer full");
                             continue;
                         }
                         _ => {
@@ -222,7 +222,7 @@ impl<'usb> USBSerial<'usb> {
                 for (i, item) in buffer.into_iter().take(num_of_chars).enumerate() {
                     // enter key
                     if item == 13 || item == 10 {
-                        info!("finished -> {}", vec);
+                        debug!("finished -> {}", vec);
                         if echo {
                             write!(self, "\n\r").expect("failed to echo newline!");
                         }
@@ -241,7 +241,7 @@ impl<'usb> USBSerial<'usb> {
                         }
                         continue;
                     }
-                    info!(
+                    debug!(
                         "received {:?} = {:?} ({}/{})",
                         item as char,
                         item,

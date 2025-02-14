@@ -4,6 +4,7 @@ use core::slice::Iter;
 
 use itertools::{Batching, Itertools};
 
+
 const CHIP_ARRAY: &[[u8; 16]] = &[
     [
         0b11, 0b01, 0b10, 0b01, 0b11, 0b00, 0b00, 0b11, 0b01, 0b01, 0b00, 0b10, 0b00, 0b10, 0b11, 0b10,
@@ -359,12 +360,13 @@ fn pack_bits_into_u32(it: &mut IntsListType) -> Option<u32> {
 }
 
 /// swap every 2 characters in a string
-///
+/// 
+///  length ~ * 2
 /// # Arguments
 ///
 /// * `s`: the string
 ///
-/// returns: FlatMap<Tuples<Chars, (char, char)>, [char; 2], fn((char, char)) -> [char; 2]>
+/// returns: ~ impl Iterator<Item=[u8; 2]>
 ///
 /// # Examples
 ///
@@ -377,9 +379,28 @@ fn swap(s: &[u8]) -> SwapType {
         .flat_map(swap_and_split_fn)
 }
 
+/// convert half bytes to chips
+/// 
+/// input * 16
+/// # Arguments 
+/// 
+/// * `s`: swap iterator ~ impl Iterator<Item=[u8; 2]>
+/// 
+/// returns: ~ impl Iterator<Item=[u8; 16]>
 fn get_chip_sequences(s: SwapType) -> ChipSequenceType {
     s.flat_map(hex_to_chips)
 }
+
+
+/// add middle bits to not cross 0,0 in phase diagram
+/// 
+/// input * 2
+/// # Arguments 
+/// 
+/// * `cs`: iterator of chip sequences ~ impl Iterator<Item=[u8; 16]>
+/// 
+/// returns:  ~ impl Iterator<Item=[u8; 2]>
+///
 fn add_middle_bits_for_o_qpsk(cs: ChipSequenceType) -> MiddleBitsType {
     cs.scan(0u8, add_middle as fn(&mut u8, u8) -> Option<[u8; 2]>)
         .flatten()
@@ -404,33 +425,39 @@ fn add_middle_bits_for_o_qpsk(cs: ChipSequenceType) -> MiddleBitsType {
 ///         repeat4,
 ///    );
 /// ```
-pub fn convert_advanced<'a>(
+pub fn convert_advanced<'a, const NUMBER_OF_REPEATED_WAVES:u8>(
     s: &'a [u8],
-    repeat_fn: fn(u8) -> Take<Repeat<u8>>,
     waves: &'a [[Level; 3]; 4],
-) -> ConvertIterType<'a> {
+) -> ConvertIterType<'a>{
+    
+    
+    
     // TODO: make sure there is an even number of characters in s
     // swap for endianness
-    let a: SwapType = swap(s);
+    let a: SwapType = swap(s); //  length*2
 
     // ->  get chip sequences
-    let b: ChipSequenceType = get_chip_sequences(a);
+    let b: ChipSequenceType = get_chip_sequences(a); //  length*16
 
     // -> add middle bits for O-QPSK
-    let b2: MiddleBitsType = add_middle_bits_for_o_qpsk(b);
+    let b2: MiddleBitsType = add_middle_bits_for_o_qpsk(b); //  length*2
 
-    let b3: RepeatType = b2
-        // repeat the chips the number of times needed
+    let repeat_fn :fn(u8) -> Take<Repeat<u8>> =  repeat_n::<NUMBER_OF_REPEATED_WAVES>;
+    
+    let b3: RepeatType = b2 // length * number of repeats
+        // repeat the chips the number of times needed, 
+        // and add reference to waves array for each element for next step
         .flat_map(repeat_fn)
-        .zip(iter::repeat(waves));
+        .zip(iter::repeat(waves)); // length * repeat
 
     let c1: LengthsType = b3
         // translate chips into waves
-        .flat_map(chips_to_waves as fn((u8, &[[Level; 3]; 4])) -> [Level; 3])
+        .flat_map(chips_to_waves as fn((u8, &[[Level; 3]; 4])) -> [Level; 3]) // max: length * 3
         .scan(
             Level::Low(0),
             combine_waves as fn(&mut Level, Level) -> Option<Level>,
         );
+    
     let c1_1: IntsListType = once(0).chain(
         c1.filter_map(levels_to_ints as fn(Level) -> Option<u8>)
             .flat_map(lengths_to_pio_byte_code_ints as fn(u8) -> Chain<Take<Repeat<u8>>, Once<u8>>),

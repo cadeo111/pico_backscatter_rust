@@ -1,16 +1,17 @@
 #![no_std]
 #![no_main]
 
-use crate::pio_helpers::{ initialize_pio, StandardTransmitOption};
+use crate::pio_helpers::{initialize_pio, StandardTransmitOption};
 use crate::serial_executor::executor;
 use crate::usb_serial::USBSerial;
 use bsp::entry;
 #[allow(unused_imports)]
 use defmt_rtt as _;
+// this allows panic handling
 #[allow(unused_imports)]
 use panic_probe as _;
+
 use rp_pico as bsp;
-// this allows panic handling
 
 mod board_setup;
 mod data_array;
@@ -23,6 +24,7 @@ mod usb_serial;
 
 #[entry]
 fn main() -> ! {
+   
     let transmission_type = StandardTransmitOption::Clk128MHzOffset8MHz;
 
     let (pins, mut delay, mut resets, bus, pio) = board_setup::setup(transmission_type.processor_clock());
@@ -30,24 +32,15 @@ fn main() -> ! {
     let mut serial = USBSerial::new(&bus);
 
     // Set up PIO to control transmission
-    let (mut tx, mut pio_ctrl) =
-        initialize_pio(pins.gpio3, pins.gpio6, pio, &mut resets);
+    let (mut tx, mut pio_ctrl) = initialize_pio(pins.gpio3, pins.gpio6, pio, &mut resets);
 
     // set the correct clock divider
     pio_ctrl.change_clock_divider(transmission_type.state_machine_clock());
 
-
-
     // let generated_frame_bytes:Vec<u8, crate::pio_helpers::MAX_FRAME_SIZE>  = get_testing_generated_frame_bytes();
     // let waves = generate_waves::<16>();
 
-    executor(
-        &mut serial,
-        &mut delay,
-        &mut tx,
-        &mut pio_ctrl,
-        &transmission_type,
-    );
+    executor(&mut serial, &mut delay, &mut tx, &mut pio_ctrl, transmission_type);
     //
     //
     // // generate a frame on the pico
