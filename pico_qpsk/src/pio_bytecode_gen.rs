@@ -4,7 +4,6 @@ use core::slice::Iter;
 
 use itertools::{Batching, Itertools};
 
-
 const CHIP_ARRAY: &[[u8; 16]] = &[
     [
         0b11, 0b01, 0b10, 0b01, 0b11, 0b00, 0b00, 0b11, 0b01, 0b01, 0b00, 0b10, 0b00, 0b10, 0b11, 0b10,
@@ -301,9 +300,6 @@ fn repeater(repeats: u8, n: u8) -> Take<Repeat<u8>> {
     iter::repeat(n).take(repeats as usize)
 }
 
-
-
-
 /// repeat n [TIMES] times,
 ///
 /// # Arguments
@@ -317,11 +313,9 @@ fn repeater(repeats: u8, n: u8) -> Take<Repeat<u8>> {
 /// ```
 ///
 /// ```
-pub fn repeat_n<const TIMES:u8>(n: u8) -> Take<Repeat<u8>>{
+pub fn repeat_n<const TIMES: u8>(n: u8) -> Take<Repeat<u8>> {
     repeater(TIMES, n)
 }
-
-
 
 pub type ConvertIterType<'a> = Batching<IntsListType<'a>, fn(&mut IntsListType) -> Option<u32>>;
 
@@ -360,7 +354,7 @@ fn pack_bits_into_u32(it: &mut IntsListType) -> Option<u32> {
 }
 
 /// swap every 2 characters in a string
-/// 
+///
 ///  length ~ * 2
 /// # Arguments
 ///
@@ -380,25 +374,24 @@ fn swap(s: &[u8]) -> SwapType {
 }
 
 /// convert half bytes to chips
-/// 
+///
 /// input * 16
-/// # Arguments 
-/// 
+/// # Arguments
+///
 /// * `s`: swap iterator ~ impl Iterator<Item=[u8; 2]>
-/// 
+///
 /// returns: ~ impl Iterator<Item=[u8; 16]>
 fn get_chip_sequences(s: SwapType) -> ChipSequenceType {
     s.flat_map(hex_to_chips)
 }
 
-
 /// add middle bits to not cross 0,0 in phase diagram
-/// 
+///
 /// input * 2
-/// # Arguments 
-/// 
+/// # Arguments
+///
 /// * `cs`: iterator of chip sequences ~ impl Iterator<Item=[u8; 16]>
-/// 
+///
 /// returns:  ~ impl Iterator<Item=[u8; 2]>
 ///
 fn add_middle_bits_for_o_qpsk(cs: ChipSequenceType) -> MiddleBitsType {
@@ -425,13 +418,10 @@ fn add_middle_bits_for_o_qpsk(cs: ChipSequenceType) -> MiddleBitsType {
 ///         repeat4,
 ///    );
 /// ```
-pub fn convert_advanced<'a, const NUMBER_OF_REPEATED_WAVES:u8>(
+pub fn convert_advanced<'a, const NUMBER_OF_REPEATED_WAVES: u8>(
     s: &'a [u8],
     waves: &'a [[Level; 3]; 4],
-) -> ConvertIterType<'a>{
-    
-    
-    
+) -> ConvertIterType<'a> {
     // TODO: make sure there is an even number of characters in s
     // swap for endianness
     let a: SwapType = swap(s); //  length*2
@@ -442,10 +432,10 @@ pub fn convert_advanced<'a, const NUMBER_OF_REPEATED_WAVES:u8>(
     // -> add middle bits for O-QPSK
     let b2: MiddleBitsType = add_middle_bits_for_o_qpsk(b); //  length*2
 
-    let repeat_fn :fn(u8) -> Take<Repeat<u8>> =  repeat_n::<NUMBER_OF_REPEATED_WAVES>;
-    
+    let repeat_fn: fn(u8) -> Take<Repeat<u8>> = repeat_n::<NUMBER_OF_REPEATED_WAVES>;
+
     let b3: RepeatType = b2 // length * number of repeats
-        // repeat the chips the number of times needed, 
+        // repeat the chips the number of times needed,
         // and add reference to waves array for each element for next step
         .flat_map(repeat_fn)
         .zip(iter::repeat(waves)); // length * repeat
@@ -457,7 +447,7 @@ pub fn convert_advanced<'a, const NUMBER_OF_REPEATED_WAVES:u8>(
             Level::Low(0),
             combine_waves as fn(&mut Level, Level) -> Option<Level>,
         );
-    
+
     let c1_1: IntsListType = once(0).chain(
         c1.filter_map(levels_to_ints as fn(Level) -> Option<u8>)
             .flat_map(lengths_to_pio_byte_code_ints as fn(u8) -> Chain<Take<Repeat<u8>>, Once<u8>>),

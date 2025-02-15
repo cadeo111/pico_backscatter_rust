@@ -195,7 +195,7 @@ macro_rules! wave_array {
 
 #[allow(clippy::enum_variant_names)]
 #[allow(dead_code)]
-#[derive(Copy,Clone,Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum StandardTransmitOption {
     Clk128MHzOffset8MHz,
     Clk144MHzOffset6MHz,
@@ -227,7 +227,7 @@ impl StandardTransmitOption {
                 convert_advanced::<1>(message_bytes, &wave_array!(16))
             }
             StandardTransmitOption::Clk128MHzOffset8MHz => {
-                convert_advanced::<4>(message_bytes,  &wave_array!(16))
+                convert_advanced::<4>(message_bytes, &wave_array!(16))
             }
             StandardTransmitOption::Clk144MHzOffset6MHz => {
                 convert_advanced::<3>(message_bytes, &wave_array!(24))
@@ -286,7 +286,10 @@ fn get_testing_generated_frame_bytes<const MAX_PAYLOAD_SIZE: usize, const MAX_FR
     frame_bytes
 }
 
-pub fn get_random_payload_frame_bytes<const MAX_PAYLOAD_SIZE: usize, const MAX_FRAME_SIZE: usize>(step:usize, size:usize
+#[allow(dead_code)]
+pub fn get_random_payload_frame_bytes<const MAX_PAYLOAD_SIZE: usize, const MAX_FRAME_SIZE: usize>(
+    step: usize,
+    size: usize,
 ) -> Vec<u8, MAX_FRAME_SIZE> {
     assert!(size <= MAX_PAYLOAD_SIZE, "payload is too big!");
     const RANDOMS: [u8; 256] = [
@@ -308,13 +311,15 @@ pub fn get_random_payload_frame_bytes<const MAX_PAYLOAD_SIZE: usize, const MAX_F
         0xde,
     ];
 
-    let payload_vec:Vec<u8, MAX_PAYLOAD_SIZE> = RANDOMS.into_iter().cycle().step_by(step).take(size).collect();
+    let payload_vec: Vec<u8, MAX_PAYLOAD_SIZE> =
+        RANDOMS.into_iter().cycle().step_by(step).take(size).collect();
 
     get_testing_generated_frame_bytes::<MAX_PAYLOAD_SIZE, MAX_FRAME_SIZE>(&payload_vec)
 }
 
-pub fn get_seq_frame_bytes<const MAX_PAYLOAD_SIZE: usize, const MAX_FRAME_SIZE: usize>(size:usize) -> Vec<u8, MAX_FRAME_SIZE>
-{
+pub fn get_seq_frame_bytes<const MAX_PAYLOAD_SIZE: usize, const MAX_FRAME_SIZE: usize>(
+    size: usize,
+) -> Vec<u8, MAX_FRAME_SIZE> {
     assert!(size <= MAX_PAYLOAD_SIZE, "payload is too big!");
     const SEQ: [u8; 256] = [
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
@@ -335,7 +340,7 @@ pub fn get_seq_frame_bytes<const MAX_PAYLOAD_SIZE: usize, const MAX_FRAME_SIZE: 
         0xFF,
     ];
 
-    let payload_vec:Vec<u8, MAX_PAYLOAD_SIZE>  = SEQ.into_iter().cycle().take(size).collect();
+    let payload_vec: Vec<u8, MAX_PAYLOAD_SIZE> = SEQ.into_iter().cycle().take(size).collect();
 
     get_testing_generated_frame_bytes::<MAX_PAYLOAD_SIZE, MAX_FRAME_SIZE>(&payload_vec)
 }

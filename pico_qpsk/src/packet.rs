@@ -165,7 +165,6 @@ impl<'p, const MAX_FRAME_SIZE: usize> PhysicalFrame<'p, MAX_FRAME_SIZE> {
             .map_err(|_| FrameConstructionError::VecLen)?;
         Ok(v)
     }
-    
 }
 
 /// Convert mac frame to

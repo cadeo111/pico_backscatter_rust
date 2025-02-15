@@ -24,7 +24,6 @@ mod usb_serial;
 
 #[entry]
 fn main() -> ! {
-   
     let transmission_type = StandardTransmitOption::Clk128MHzOffset8MHz;
 
     let (pins, mut delay, mut resets, bus, pio) = board_setup::setup(transmission_type.processor_clock());
