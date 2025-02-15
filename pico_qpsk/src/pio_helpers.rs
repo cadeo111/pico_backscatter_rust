@@ -35,7 +35,7 @@ where
         self.sm.exec_instruction(Instruction {
             operands: JMP {
                 condition: JmpCondition::Always,
-                address: 0x0,
+                address: 0x1,
             },
             delay: 0,
             side_set: None,
@@ -307,9 +307,9 @@ pub fn get_random_payload_frame_bytes<const MAX_PAYLOAD_SIZE: usize, const MAX_F
         0xe5, 0x71, 0x4d, 0x85, 0xad, 0x70, 0x95, 0x9f, 0xac, 0x94, 0x78, 0x0d, 0xb5, 0xf4, 0x9e, 0x57, 0xda,
         0xde,
     ];
-    
+
     let payload_vec:Vec<u8, MAX_PAYLOAD_SIZE> = RANDOMS.into_iter().cycle().step_by(step).take(size).collect();
-    
+
     get_testing_generated_frame_bytes::<MAX_PAYLOAD_SIZE, MAX_FRAME_SIZE>(&payload_vec)
 }
 
@@ -336,7 +336,7 @@ pub fn get_seq_frame_bytes<const MAX_PAYLOAD_SIZE: usize, const MAX_FRAME_SIZE: 
     ];
 
     let payload_vec:Vec<u8, MAX_PAYLOAD_SIZE>  = SEQ.into_iter().cycle().take(size).collect();
-    
+
     get_testing_generated_frame_bytes::<MAX_PAYLOAD_SIZE, MAX_FRAME_SIZE>(&payload_vec)
 }
 

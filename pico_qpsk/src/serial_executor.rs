@@ -323,9 +323,9 @@ fn send_packets(
             }
             tx.write(*i);
         }
-        pio_ctrl.stop();
         delay.delay_ms(interval_ms);
         if serial.poll_is_etx() {
+            pio_ctrl.stop();
             on_exit_early(serial, i + 1);
 
             return;
