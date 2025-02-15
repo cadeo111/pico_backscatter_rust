@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="uv (data_processing)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="uv (data_processing)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.12.3 WSL (Ubuntu): (/home/caden/github/pico_backscatter_rust/pico_qpsk/data_processing/.venv/bin/python)" project-jdk-type="Python SDK" />
 </project>
