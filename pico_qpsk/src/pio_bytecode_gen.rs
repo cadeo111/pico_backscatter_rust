@@ -1,5 +1,5 @@
 use core::iter;
-use core::iter::{once, Chain, FilterMap, FlatMap, Flatten, Once, Repeat, Scan, Skip, Take};
+use core::iter::{once, Chain, FilterMap, FlatMap, Flatten, Once, Repeat, Scan, Skip, Take, Zip};
 use core::slice::Iter;
 
 use itertools::{Batching, Itertools};
@@ -58,10 +58,13 @@ const CHIP_ARRAY: &[[u8; 16]] = &[
 type SwapType<'a> = FlatMap<Iter<'a, u8>, [u8; 2], fn(&u8) -> [u8; 2]>;
 type ChipSequenceType<'a> = FlatMap<SwapType<'a>, [u8; 16], fn(u8) -> [u8; 16]>;
 type MiddleBitsType<'a> = Skip<Flatten<Scan<ChipSequenceType<'a>, u8, fn(&mut u8, u8) -> Option<[u8; 2]>>>>;
-type RepeatType<'a> = FlatMap<MiddleBitsType<'a>, Take<Repeat<u8>>, fn(u8) -> Take<Repeat<u8>>>;
+type RepeatType<'a> = Zip<
+    FlatMap<MiddleBitsType<'a>, Take<Repeat<u8>>, fn(u8) -> Take<Repeat<u8>>>,
+    Repeat<&'a [[Level; 3]; 4]>,
+>;
 
 type LengthsType<'a> = Scan<
-    FlatMap<RepeatType<'a>, [Level; 3], fn(u8) -> [Level; 3]>,
+    FlatMap<RepeatType<'a>, [Level; 3], fn((u8, &[[Level; 3]; 4])) -> [Level; 3]>,
     Level,
     fn(&mut Level, Level) -> Option<Level>,
 >;
@@ -123,6 +126,7 @@ fn hex_to_chips(c: u8) -> [u8; 16] {
 ///
 /// #### returns: Option<[u8; 2]>
 ///  return the intermediate chip and the next chip
+#[allow(clippy::unnecessary_wraps)]
 fn add_middle(prev: &mut u8, current: u8) -> Option<[u8; 2]> {
     // middle will have q from previous, i from next
     let middle: u8 = (*prev & 0b01) | (current & 0b10);
@@ -145,24 +149,29 @@ fn add_middle(prev: &mut u8, current: u8) -> Option<[u8; 2]> {
 ///  ie [Level::Low(4), Level::High(8), Level::Low(4)];
 ///
 ///
-///  ie 4 cycles low, 8 cycles high, 4 cycles low
-fn chips_to_waves(bit_chip2: u8) -> [Level; 3] {
+///  ie 4 cycles low, 8 cycles high, 4 cycles lo
+fn chips_to_waves(input: (u8, &[[Level; 3]; 4])) -> [Level; 3] {
+    let (bit_chip2, waves) = input;
     match bit_chip2 {
         0b00 => {
             //0000111111110000
-            [Level::Low(4), Level::High(8), Level::Low(4)]
+            // [Level::Low(4), Level::High(8), Level::Low(4)]
+            waves[0]
         }
         0b01 => {
             //0000000011111111
-            [Level::Low(8), Level::High(8), Level::Nop]
+            // [Level::Low(8), Level::High(8), Level::Nop]
+            waves[1]
         }
         0b10 => {
             // 1111111100000000
-            [Level::High(8), Level::Low(8), Level::Nop]
+            // [Level::High(8), Level::Low(8), Level::Nop]
+            waves[2]
         }
         0b11 => {
             //1111000000001111
-            [Level::High(4), Level::Low(8), Level::High(4)]
+            // [Level::High(4), Level::Low(8), Level::High(4)]
+            waves[3]
         }
 
         _ => {
@@ -291,35 +300,24 @@ fn repeater(repeats: u8, n: u8) -> Take<Repeat<u8>> {
     iter::repeat(n).take(repeats as usize)
 }
 
-/// repeat 4 times,
+/// repeat n [TIMES] times,
 ///
-/// necessary for typing reasons, can't return a closure type via a iterator
+/// # Arguments
 ///
-/// ### Arguments
+/// * `n`: the number to repeat (usually a chip value)
 ///
-/// * `n`: the data to repeat
+/// returns: Take<Repeat<u8>>
 ///
-/// #### returns: [Take<Repeat<u8>>]
+/// # Examples
 ///
-pub fn repeat4(n: u8) -> Take<Repeat<u8>> {
-    repeater(4, n)
+/// ```
+///
+/// ```
+pub fn repeat_n<const TIMES: u8>(n: u8) -> Take<Repeat<u8>> {
+    repeater(TIMES, n)
 }
 
-/// repeat 1 times,
-///
-/// necessary for typing reasons, can't return a closure type via a iterator
-///
-/// ### Arguments
-///
-/// * `n`: the data to repeat
-///
-/// #### returns: Take<Repeat<u8>>
-#[allow(dead_code)]
-pub fn repeat1(n: u8) -> Take<Repeat<u8>> {
-    repeater(1, n)
-}
-
-pub type ConvertType<'a> = Batching<IntsListType<'a>, fn(&mut IntsListType) -> Option<u32>>;
+pub type ConvertIterType<'a> = Batching<IntsListType<'a>, fn(&mut IntsListType) -> Option<u32>>;
 
 /// from an iterator of 0 and 1, pack them into a u32
 ///
@@ -357,11 +355,12 @@ fn pack_bits_into_u32(it: &mut IntsListType) -> Option<u32> {
 
 /// swap every 2 characters in a string
 ///
+///  length ~ * 2
 /// # Arguments
 ///
 /// * `s`: the string
 ///
-/// returns: FlatMap<Tuples<Chars, (char, char)>, [char; 2], fn((char, char)) -> [char; 2]>
+/// returns: ~ impl Iterator<Item=[u8; 2]>
 ///
 /// # Examples
 ///
@@ -374,9 +373,27 @@ fn swap(s: &[u8]) -> SwapType {
         .flat_map(swap_and_split_fn)
 }
 
+/// convert half bytes to chips
+///
+/// input * 16
+/// # Arguments
+///
+/// * `s`: swap iterator ~ impl Iterator<Item=[u8; 2]>
+///
+/// returns: ~ impl Iterator<Item=[u8; 16]>
 fn get_chip_sequences(s: SwapType) -> ChipSequenceType {
     s.flat_map(hex_to_chips)
 }
+
+/// add middle bits to not cross 0,0 in phase diagram
+///
+/// input * 2
+/// # Arguments
+///
+/// * `cs`: iterator of chip sequences ~ impl Iterator<Item=[u8; 16]>
+///
+/// returns:  ~ impl Iterator<Item=[u8; 2]>
+///
 fn add_middle_bits_for_o_qpsk(cs: ChipSequenceType) -> MiddleBitsType {
     cs.scan(0u8, add_middle as fn(&mut u8, u8) -> Option<[u8; 2]>)
         .flatten()
@@ -391,7 +408,7 @@ fn add_middle_bits_for_o_qpsk(cs: ChipSequenceType) -> MiddleBitsType {
 /// * `s`: the hex string to translate to pio bytecode
 /// * `repeat_fn`: function that defines how many repeats of the waveform there are, see [repeat4]
 ///
-/// returns:  [ConvertType]
+/// returns:  [ConvertIterType]
 ///
 /// # Examples
 ///
@@ -401,33 +418,41 @@ fn add_middle_bits_for_o_qpsk(cs: ChipSequenceType) -> MiddleBitsType {
 ///         repeat4,
 ///    );
 /// ```
-pub fn convert(s: &[u8], repeat_fn: fn(u8) -> Take<Repeat<u8>>) -> ConvertType {
+pub fn convert_advanced<'a, const NUMBER_OF_REPEATED_WAVES: u8>(
+    s: &'a [u8],
+    waves: &'a [[Level; 3]; 4],
+) -> ConvertIterType<'a> {
     // TODO: make sure there is an even number of characters in s
     // swap for endianness
-    let a: SwapType = swap(s);
+    let a: SwapType = swap(s); //  length*2
 
     // ->  get chip sequences
-    let b: ChipSequenceType = get_chip_sequences(a);
+    let b: ChipSequenceType = get_chip_sequences(a); //  length*16
 
     // -> add middle bits for O-QPSK
-    let b2: MiddleBitsType = add_middle_bits_for_o_qpsk(b);
+    let b2: MiddleBitsType = add_middle_bits_for_o_qpsk(b); //  length*2
 
-    let b3: RepeatType = b2
-        // repeat the chips the number of times needed
-        .flat_map(repeat_fn);
+    let repeat_fn: fn(u8) -> Take<Repeat<u8>> = repeat_n::<NUMBER_OF_REPEATED_WAVES>;
+
+    let b3: RepeatType = b2 // length * number of repeats
+        // repeat the chips the number of times needed,
+        // and add reference to waves array for each element for next step
+        .flat_map(repeat_fn)
+        .zip(iter::repeat(waves)); // length * repeat
 
     let c1: LengthsType = b3
         // translate chips into waves
-        .flat_map(chips_to_waves as fn(u8) -> [Level; 3])
+        .flat_map(chips_to_waves as fn((u8, &[[Level; 3]; 4])) -> [Level; 3]) // max: length * 3
         .scan(
             Level::Low(0),
             combine_waves as fn(&mut Level, Level) -> Option<Level>,
         );
+
     let c1_1: IntsListType = once(0).chain(
         c1.filter_map(levels_to_ints as fn(Level) -> Option<u8>)
             .flat_map(lengths_to_pio_byte_code_ints as fn(u8) -> Chain<Take<Repeat<u8>>, Once<u8>>),
     );
-    let c2: ConvertType = c1_1.batching(pack_bits_into_u32 as fn(&mut IntsListType) -> Option<u32>);
+    let c2: ConvertIterType = c1_1.batching(pack_bits_into_u32 as fn(&mut IntsListType) -> Option<u32>);
 
     c2
 }

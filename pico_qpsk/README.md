@@ -23,6 +23,7 @@
     ```
     uvx --from pyserial pyserial-miniterm -e <usb-device> 115200
     ```
+   
 8. type `r` and hit enter to restart the firefly / clear configuration
 9. type `f 2452`and hit enter to set the carier to 2452 MHz
 10. type `a` and hit enter to start the carier
