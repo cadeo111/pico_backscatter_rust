@@ -1,1 +1,1 @@
-pico_qpsk/README.md
+../pico_qpsk/README.md
