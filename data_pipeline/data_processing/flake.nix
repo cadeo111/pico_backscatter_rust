@@ -37,8 +37,7 @@
               echo installing uv deps
               uv sync
               source .venv/bin/activate
-              pycharm-professional .
-              exit
+              alias start='pycharm-professional .;exit'
 
             '';
           };
