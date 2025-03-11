@@ -5,18 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="2df7973f-32c9-4b29-acb5-fb3a0eb02521" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/extract_packets.ipynb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/extract_packets.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/view_sequential.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/data_processing.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/data_processing.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/flake.nix" beforeDir="false" afterPath="$PROJECT_DIR$/flake.nix" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/extract_packets.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/extract_packets.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/packetizer.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/packetizer.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/test_older_pipeline.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/test_older_pipeline.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/test_older_pipeline_2.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/test_older_pipeline_2.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/uv.lock" beforeDir="false" afterPath="$PROJECT_DIR$/uv.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/view_sequential.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/view_sequential.ipynb" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -56,6 +50,11 @@
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
     &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  },
+  &quot;keyToStringList&quot;: {
+    &quot;com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File&quot;: [
+      &quot;TEXT&quot;
+    ]
   }
 }</component>
   <component name="PyDebuggerOptionsProvider">
@@ -130,7 +129,17 @@
       <workItem from="1741315147591" duration="47000" />
       <workItem from="1741316420420" duration="9011000" />
       <workItem from="1741473090899" duration="1054000" />
-      <workItem from="1741475651243" duration="7875000" />
+      <workItem from="1741475651243" duration="14483000" />
+      <workItem from="1741571468051" duration="3005000" />
+      <workItem from="1741574481516" duration="39000" />
+      <workItem from="1741574528686" duration="1520000" />
+      <workItem from="1741576057015" duration="19000" />
+      <workItem from="1741576083698" duration="18026000" />
+      <workItem from="1741682616578" duration="14608000" />
+      <workItem from="1741699828407" duration="30000" />
+      <workItem from="1741699869288" duration="1571000" />
+      <workItem from="1741702337801" duration="2654000" />
+      <workItem from="1741705200647" duration="1067000" />
     </task>
     <servers />
   </component>
